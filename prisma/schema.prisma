@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -37,7 +37,7 @@ model DailyReport {
   id           String   @id @default(cuid())
   userId       String
   date         String   // YYYY-MM-DD format
-  activityText String
+  activityText String   @db.Text
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -50,7 +50,7 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
   action    String   // "login", "report_created", "employee_created", "export", etc.
-  details   String?  // JSON string with additional details
+  details   String?  @db.Text // JSON string with additional details
   ipAddress String?
   createdAt DateTime @default(now())
 
