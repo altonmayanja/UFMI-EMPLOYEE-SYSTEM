@@ -82,7 +82,7 @@ interface AdminStats {
   currentMonth: string
   today: string
   departmentStats: { department: string; count: number }[]
-  missingTodayReports: { id: string; username: string; profile?: { employeeId?: string; department?: string } }[]
+  missingTodayReports: { id: string; username: string; profile?: { employeeId?: string; position?: string; department?: string } }[]
   recentReports: DailyReport[]
 }
 
@@ -308,7 +308,7 @@ function TopNavBar({
               </div>
               <div className="hidden lg:block">
                 <p className="text-sm font-medium text-gray-700 leading-none">{user?.username}</p>
-                <p className="text-[11px] text-gray-400 capitalize">{user?.role}</p>
+                <p className="text-[11px] text-gray-400">{user?.role === 'admin' ? 'Administrator' : (user?.profile?.position || user?.role)}</p>
               </div>
             </div>
 
@@ -347,7 +347,7 @@ function TopNavBar({
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-700">{user?.username}</p>
-                <p className="text-[11px] text-gray-400 capitalize">{user?.role}</p>
+                <p className="text-[11px] text-gray-400">{user?.role === 'admin' ? 'Administrator' : (user?.profile?.position || user?.role)}</p>
               </div>
             </div>
             <nav className="space-y-1">
@@ -378,6 +378,45 @@ function TopNavBar({
         )}
       </div>
     </header>
+  )
+}
+
+// =====================================================================
+// EMPLOYEE: USER INFO CARD (shows position, department, employee ID)
+// =====================================================================
+
+function EmployeeInfoCard() {
+  const user = useAuthStore((s) => s.user)
+
+  if (!user?.profile) return null
+
+  return (
+    <Card className="max-w-2xl border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 mb-6">
+      <CardContent className="py-4 flex items-center gap-4">
+        <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
+          <span className="text-lg font-bold text-white uppercase">{(user.username || 'U').charAt(0)}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-semibold text-gray-900">{user.username}</h2>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+            <span className="flex items-center gap-1.5 text-sm text-gray-600">
+              <Briefcase className="h-3.5 w-3.5 text-emerald-500" />
+              {user.profile.position}
+            </span>
+            <span className="flex items-center gap-1.5 text-sm text-gray-600">
+              <Building2 className="h-3.5 w-3.5 text-emerald-500" />
+              {user.profile.department}
+            </span>
+            {user.profile.employeeId && (
+              <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                <UserCircle className="h-3.5 w-3.5 text-gray-400" />
+                {user.profile.employeeId}
+              </span>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -434,6 +473,8 @@ function EmployeeSubmitReport() {
         <h1 className="text-2xl font-bold text-gray-900">Submit Report</h1>
         <p className="text-gray-500 mt-1">Record your daily activities</p>
       </div>
+
+      <EmployeeInfoCard />
 
       <Card className="max-w-2xl">
         <CardContent className="pt-6">
@@ -570,6 +611,8 @@ function EmployeeMyReports() {
         <h1 className="text-2xl font-bold text-gray-900">My Reports</h1>
         <p className="text-gray-500 mt-1">View and manage your daily reports</p>
       </div>
+
+      <EmployeeInfoCard />
 
       {/* Month navigation */}
       <div className="flex items-center gap-3 mb-6">
@@ -823,7 +866,7 @@ function AdminOverview() {
                       <UserCircle className="h-5 w-5 text-gray-400" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-700 truncate">{emp.username}</p>
-                        <p className="text-xs text-gray-400">{emp.profile?.department || 'Unassigned'}</p>
+                        <p className="text-xs text-gray-400">{emp.profile?.position || 'Unassigned'} &middot; {emp.profile?.department || 'Unassigned'}</p>
                       </div>
                     </div>
                   ))}
@@ -847,6 +890,7 @@ function AdminOverview() {
                 <TableRow className="bg-gray-50">
                   <TableHead className="text-xs">Date</TableHead>
                   <TableHead className="text-xs">Employee</TableHead>
+                  <TableHead className="text-xs">Position</TableHead>
                   <TableHead className="text-xs">Department</TableHead>
                   <TableHead className="text-xs">Activity</TableHead>
                 </TableRow>
@@ -856,6 +900,7 @@ function AdminOverview() {
                   <TableRow key={r.id}>
                     <TableCell className="text-xs">{format(parseISO(r.date), 'MMM d')}</TableCell>
                     <TableCell className="text-xs font-medium">{r.user?.username}</TableCell>
+                    <TableCell className="text-xs text-gray-500">{r.user?.profile?.position || '-'}</TableCell>
                     <TableCell className="text-xs text-gray-500">{r.user?.profile?.department || '-'}</TableCell>
                     <TableCell className="text-xs text-gray-600 max-w-[300px] truncate">{r.activityText}</TableCell>
                   </TableRow>
@@ -1403,6 +1448,7 @@ function AdminReports() {
                   <TableRow className="bg-gray-50/80">
                     <TableHead className="text-xs">Date</TableHead>
                     <TableHead className="text-xs">Employee</TableHead>
+                    <TableHead className="text-xs hidden md:table-cell">Position</TableHead>
                     <TableHead className="text-xs hidden md:table-cell">Department</TableHead>
                     <TableHead className="text-xs">Activity</TableHead>
                     <TableHead className="text-xs w-10"></TableHead>
@@ -1413,6 +1459,9 @@ function AdminReports() {
                     <TableRow key={r.id} className="group">
                       <TableCell className="text-xs">{format(parseISO(r.date), 'MMM d, yyyy')}</TableCell>
                       <TableCell className="text-xs font-medium">{r.user?.username || '-'}</TableCell>
+                      <TableCell className="text-xs text-gray-500 hidden md:table-cell">
+                        {r.user?.profile?.position || '-'}
+                      </TableCell>
                       <TableCell className="text-xs text-gray-500 hidden md:table-cell">
                         {r.user?.profile?.department || '-'}
                       </TableCell>

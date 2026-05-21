@@ -64,11 +64,10 @@ export async function GET(request: NextRequest) {
             reports: { some: { date: today } },
           },
         },
-        include: { profile: true },
         select: {
           id: true,
           username: true,
-          profile: { select: { employeeId: true, department: true } },
+          profile: { select: { employeeId: true, position: true, department: true } },
         },
       }),
     ])
@@ -80,7 +79,7 @@ export async function GET(request: NextRequest) {
         user: {
           select: {
             username: true,
-            profile: { select: { employeeId: true, department: true } },
+            profile: { select: { employeeId: true, position: true, department: true } },
           },
         },
       },

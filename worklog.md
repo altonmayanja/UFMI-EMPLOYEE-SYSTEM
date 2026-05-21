@@ -114,3 +114,27 @@ Work Log:
 
 Stage Summary:
 - Application is fully functional and ready for use
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Display position in dashboards and ensure admin assigns position during employee creation
+
+Work Log:
+- Verified admin employee creation already requires position (predefined dropdown with 13 positions)
+- Updated TopNavBar to show employee's position instead of just role label
+- Admin users see "Administrator" label; employees see their actual position (e.g., "Software Engineer")
+- Created EmployeeInfoCard component showing: position (Briefcase icon), department (Building icon), employee ID
+- Added EmployeeInfoCard to both Submit Report and My Reports employee views
+- Updated AdminStats type to include position in missingTodayReports
+- Added position column to Admin Overview "Recent Reports" table
+- Added position column to Admin "All Reports" table
+- Updated /api/admin/stats to return position in missingTodayReports and recentReports profile selects
+- Fixed Prisma query error (cannot use both `include` and `select` on same query)
+
+Stage Summary:
+- Employee position is now prominently displayed throughout the application
+- Employee dashboard shows user info card with position, department, and employee ID
+- Admin tables show position alongside department for each employee/report
+- Navbar shows position for employees, "Administrator" for admins
+- Full flow verified: Admin creates employee with position → Employee login returns position → Dashboard displays position
