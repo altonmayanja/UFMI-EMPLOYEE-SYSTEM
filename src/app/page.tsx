@@ -147,6 +147,7 @@ function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [remember, setRemember] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
   const login = useAuthStore((s) => s.login)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -243,7 +244,7 @@ function LoginPage() {
                   />
                   <span className="text-sm text-gray-600">Remember me for 30 days</span>
                 </label>
-                <button type="button" className="text-sm font-medium text-[#0B1F6D] hover:text-[#1e3a8a] transition-colors">
+                <button type="button" onClick={() => setForgotOpen(true)} className="text-sm font-medium text-[#0B1F6D] hover:text-[#1e3a8a] transition-colors">
                   Forgot Password?
                 </button>
               </div>
@@ -291,8 +292,135 @@ function LoginPage() {
         <p className="text-center text-xs text-white/30 mt-6">
           &copy; {new Date().getFullYear()} Uganda Film Movie Industry. All rights reserved.
         </p>
+
+        {/* Forgot Password Dialog */}
+        <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
       </motion.div>
     </div>
+  )
+}
+
+// =====================================================================
+// FORGOT PASSWORD DIALOG
+// =====================================================================
+
+function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [step, setStep] = useState<'form' | 'success'>('form')
+  const [username, setUsername] = useState('')
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      await apiPost('/api/auth/forgot-password', {
+        username: username.trim(),
+        message: message.trim() || undefined,
+      })
+      setStep('success')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setStep('form')
+      setUsername('')
+      setMessage('')
+      setError('')
+    }
+    onOpenChange(isOpen)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-lg">
+            {step === 'success' ? 'Request Submitted' : 'Forgot Password?'}
+          </DialogTitle>
+          <DialogDescription>
+            {step === 'success'
+              ? 'Your request has been sent to the administrator.'
+              : 'Submit a password reset request. The admin will review it and update your credentials.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {step === 'success' ? (
+          <div className="flex flex-col items-center py-6 gap-4">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-sm font-semibold text-gray-900">Request Sent Successfully</p>
+              <p className="text-xs text-gray-500">
+                The administrator has been notified. They will reset your password and you&apos;ll be able to log in with the new credentials.
+              </p>
+            </div>
+            <Button onClick={() => handleClose(false)} className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg">
+              Back to Login
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Username</Label>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                required
+                className="h-10 rounded-lg border-gray-200"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Message to Admin <span className="text-gray-400 font-normal">(optional)</span></Label>
+              <Textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Explain why you need a password reset..."
+                rows={3}
+                className="rounded-lg border-gray-200 resize-none"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={() => handleClose(false)} className="flex-1 rounded-lg border-gray-200">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading} className="flex-1 bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg">
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit Request'
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -649,6 +777,156 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // =====================================================================
+// ADMIN: PASSWORD RESET REQUESTS
+// =====================================================================
+
+function PasswordResetRequests() {
+  const queryClient = useQueryClient()
+  const { data, isLoading } = useQuery<{ requests: Array<{
+    id: string
+    username: string
+    status: string
+    message: string | null
+    createdAt: string
+    user?: { profile?: { employeeId?: string; position?: string; department?: string } }
+  }>; pendingCount: number }>({
+    queryKey: ['password-resets'],
+    queryFn: () => apiGet('/api/admin/password-resets?status=pending'),
+  })
+
+  const [selectedRequest, setSelectedRequest] = useState<typeof data extends { requests: (infer T)[] } ? T : null>(null)
+  const [newPassword, setNewPassword] = useState('')
+
+  const resolveMutation = useMutation({
+    mutationFn: ({ id, action, newPassword: pw }: { id: string; action: 'resolve' | 'reject'; newPassword?: string }) =>
+      apiPatch(`/api/admin/password-resets/${id}`, { action, newPassword: pw }),
+    onSuccess: (_, variables) => {
+      toast.success(variables.action === 'resolve' ? 'Password reset successfully!' : 'Request rejected')
+      setSelectedRequest(null)
+      setNewPassword('')
+      queryClient.invalidateQueries({ queryKey: ['password-resets'] })
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Failed to process request'),
+  })
+
+  const requests = data?.requests || []
+  const pendingCount = data?.pendingCount || 0
+
+  if (isLoading) {
+    return <Skeleton className="h-48 rounded-2xl" />
+  }
+
+  return (
+    <>
+      <div className="ufmi-card p-6">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              Password Reset Requests
+              {pendingCount > 0 && (
+                <Badge className="bg-[#D94B2B]/10 text-[#D94B2B] rounded-full px-2.5 text-xs font-bold">
+                  {pendingCount}
+                </Badge>
+              )}
+            </h2>
+            <p className="text-sm text-gray-500 mt-0.5">Pending password reset requests from employees</p>
+          </div>
+        </div>
+
+        {requests.length === 0 ? (
+          <div className="flex flex-col items-center py-8">
+            <CheckCircle2 className="h-10 w-10 text-green-400 mb-2" />
+            <p className="text-sm text-gray-500 font-medium">No pending requests</p>
+            <p className="text-xs text-gray-400 mt-0.5">All password reset requests have been handled.</p>
+          </div>
+        ) : (
+          <ScrollArea className="max-h-[300px]">
+            <div className="space-y-2">
+              {requests.map((req) => (
+                <div key={req.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
+                  <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                    <Lock className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900">{req.username}</p>
+                      {req.user?.profile?.position && (
+                        <span className="text-xs text-gray-400">{req.user.profile.position}</span>
+                      )}
+                    </div>
+                    {req.message && (
+                      <p className="text-xs text-gray-500 truncate mt-0.5">&ldquo;{req.message}&rdquo;</p>
+                    )}
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {format(parseISO(req.createdAt), 'MMM d, yyyy \'at\' h:mm a')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs rounded-lg border-green-200 text-green-700 hover:bg-green-50 gap-1"
+                      onClick={() => resolveMutation.mutate({ id: req.id, action: 'resolve', newPassword: req.username + '123' })}
+                      disabled={resolveMutation.isPending}
+                    >
+                      <CheckCircle2 className="h-3 w-3" />
+                      Reset
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 text-xs rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 gap-1"
+                      onClick={() => resolveMutation.mutate({ id: req.id, action: 'reject' })}
+                      disabled={resolveMutation.isPending}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={!!selectedRequest} onOpenChange={(open) => { if (!open) { setSelectedRequest(null); setNewPassword('') } }}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Reset Password for {selectedRequest?.username}</DialogTitle>
+            <DialogDescription>Set a new temporary password for this employee.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">New Password</Label>
+              <Input
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password (min 6 characters)"
+                type="text"
+                className="rounded-lg border-gray-200"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setSelectedRequest(null); setNewPassword('') }} className="flex-1 rounded-lg">
+                Cancel
+              </Button>
+              <Button
+                onClick={() => selectedRequest && resolveMutation.mutate({ id: selectedRequest.id, action: 'resolve', newPassword })}
+                disabled={!newPassword || newPassword.length < 6 || resolveMutation.isPending}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+              >
+                {resolveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Set New Password'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+// =====================================================================
 // ADMIN: OVERVIEW
 // =====================================================================
 
@@ -701,6 +979,17 @@ function AdminOverview() {
           <Button variant="outline" className="h-9 rounded-lg text-xs gap-1.5 border-gray-200">
             <Download className="h-3.5 w-3.5" />
             Export Data
+          </Button>
+          <Button
+            onClick={() => {
+              // Navigate to employees view
+              const event = new CustomEvent('admin-navigate', { detail: 'employees' })
+              window.dispatchEvent(event)
+            }}
+            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg text-xs font-medium gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Employee
           </Button>
         </div>
       </div>
@@ -897,6 +1186,9 @@ function AdminOverview() {
           </Table>
         </div>
       </div>
+
+      {/* Password Reset Requests */}
+      <PasswordResetRequests />
     </motion.div>
   )
 }
@@ -2026,6 +2318,18 @@ export default function Home() {
   useEffect(() => {
     initialize()
   }, [initialize])
+
+  // Listen for admin navigation events from child components
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const view = (e as CustomEvent).detail
+      if (isAdmin && view) {
+        setAdminView(view as AdminView)
+      }
+    }
+    window.addEventListener('admin-navigate', handler)
+    return () => window.removeEventListener('admin-navigate', handler)
+  }, [isAdmin])
 
   const handleNavigate = useCallback((view: string) => {
     if (isAdmin) {
