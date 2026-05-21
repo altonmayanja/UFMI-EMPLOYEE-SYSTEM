@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
 import { format, subMonths, addMonths, parseISO } from 'date-fns'
@@ -181,8 +182,8 @@ function LoginPage() {
         <Card className="border-0 shadow-2xl rounded-2xl overflow-hidden">
           {/* Header section with branding */}
           <div className="px-8 pt-10 pb-6 text-center" style={{ background: 'linear-gradient(180deg, #f8f9fc 0%, #ffffff 100%)' }}>
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-[#0B1F6D] flex items-center justify-center mb-5 shadow-lg">
-              <Clapperboard className="w-8 h-8 text-white" />
+            <div className="mx-auto w-16 h-16 rounded-2xl overflow-hidden mb-5 shadow-lg">
+              <Image src="/logo.png" alt="UFMI Logo" width={64} height={64} className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">UFMI Portal</h1>
             <p className="text-sm text-gray-500 mt-1">Uganda Film Movie Industry Operations</p>
@@ -327,8 +328,8 @@ function Sidebar({
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10 shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-          <Clapperboard className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
+          <Image src="/logo.png" alt="UFMI Logo" width={36} height={36} className="w-full h-full object-contain" />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
@@ -463,8 +464,8 @@ function MobileSidebar({
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10">
-          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-            <Clapperboard className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 rounded-xl overflow-hidden">
+            <Image src="/logo.png" alt="UFMI Logo" width={36} height={36} className="w-full h-full object-contain" />
           </div>
           <div>
             <h1 className="text-sm font-bold text-white leading-none">UFMI Portal</h1>
@@ -2045,8 +2046,8 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0B1F6D' }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center animate-pulse">
-            <Clapperboard className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-2xl overflow-hidden animate-pulse">
+            <Image src="/logo.png" alt="UFMI Logo" width={48} height={48} className="w-full h-full object-contain" />
           </div>
           <p className="text-sm text-blue-200/50">Loading...</p>
         </div>

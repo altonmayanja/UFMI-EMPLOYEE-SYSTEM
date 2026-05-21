@@ -15,7 +15,8 @@ export const metadata: Metadata = {
   keywords: ["UFMI", "daily report", "employee management", "operations portal", "Uganda Film"],
   authors: [{ name: "UFMI Enterprise" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     title: "UFMI Portal - Operations Dashboard",
