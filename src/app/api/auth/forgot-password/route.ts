@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     // Find the user by username
     const user = await db.user.findUnique({
-      where: { username: username.trim().toLowerCase() },
+      where: { username: username.trim() },
       select: { id: true, username: true, status: true },
     })
 

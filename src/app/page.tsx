@@ -794,7 +794,8 @@ function PasswordResetRequests() {
     queryFn: () => apiGet('/api/admin/password-resets?status=pending'),
   })
 
-  const [selectedRequest, setSelectedRequest] = useState<typeof data extends { requests: (infer T)[] } ? T : null>(null)
+  interface ResetRequest { id: string; username: string; status: string; message: string | null; createdAt: string; user?: { profile?: { employeeId?: string; position?: string; department?: string } } }
+  const [selectedRequest, setSelectedRequest] = useState<ResetRequest | null>(null)
   const [newPassword, setNewPassword] = useState('')
 
   const resolveMutation = useMutation({
@@ -931,29 +932,36 @@ function PasswordResetRequests() {
 // =====================================================================
 
 function AdminOverview() {
-  const { data: stats, isLoading } = useQuery<AdminStats>({
+  const qc = useQueryClient()
+  const { data: stats, isLoading, isError } = useQuery<AdminStats>({
     queryKey: ['admin-stats'],
     queryFn: () => apiGet<AdminStats>('/api/admin/stats'),
   })
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-6 w-48" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-2xl" />
-          ))}
-        </div>
-        <Skeleton className="h-64 rounded-2xl" />
-      </div>
-    )
-  }
+  const [addOpen, setAddOpen] = useState(false)
+  const [addForm, setAddForm] = useState({ username: '', password: '', employeeId: '', position: '', department: '' })
+  const { data: employeesData } = useQuery<EmployeesData>({
+    queryKey: ['employees-positions'],
+    queryFn: () => apiGet<EmployeesData>('/api/admin/employees'),
+  })
+  const positions = employeesData?.positions || []
+  const departments = employeesData?.departments || []
 
-  if (!stats) return null
+  const addMutation = useMutation({
+    mutationFn: (body: typeof addForm) => apiPost('/api/admin/employees', body),
+    onSuccess: () => {
+      toast.success('Employee added successfully!')
+      setAddOpen(false)
+      setAddForm({ username: '', password: '', employeeId: '', position: '', department: '' })
+      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+      qc.invalidateQueries({ queryKey: ['admin-employees'] })
+      qc.invalidateQueries({ queryKey: ['employees-positions'] })
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Failed to add employee'),
+  })
 
-  const pendingReports = stats.activeEmployees - stats.todayReports
-  const complianceScore = stats.activeEmployees > 0
+  const pendingReports = stats ? stats.activeEmployees - stats.todayReports : 0
+  const complianceScore = stats && stats.activeEmployees > 0
     ? Math.round((stats.todayReports / stats.activeEmployees) * 100)
     : 0
 
@@ -966,27 +974,13 @@ function AdminOverview() {
           <p className="text-sm text-gray-500 mt-0.5">Live metrics for the Uganda Film Movie Industry</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select defaultValue="30d">
-            <SelectTrigger className="w-[140px] h-9 rounded-lg text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 Days</SelectItem>
-              <SelectItem value="30d">Last 30 Days</SelectItem>
-              <SelectItem value="90d">Last 90 Days</SelectItem>
-            </SelectContent>
-          </Select>
           <Button variant="outline" className="h-9 rounded-lg text-xs gap-1.5 border-gray-200">
             <Download className="h-3.5 w-3.5" />
             Export Data
           </Button>
           <Button
-            onClick={() => {
-              // Navigate to employees view
-              const event = new CustomEvent('admin-navigate', { detail: 'employees' })
-              window.dispatchEvent(event)
-            }}
-            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg text-xs font-medium gap-1.5"
+            onClick={() => setAddOpen(true)}
+            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg text-xs font-medium gap-1.5 h-9 px-4"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Employee
@@ -994,74 +988,167 @@ function AdminOverview() {
         </div>
       </div>
 
+      {/* Add Employee Dialog - directly on dashboard */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Employee</DialogTitle>
+            <DialogDescription>Create a new employee account with their credentials</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Username</Label>
+              <Input
+                value={addForm.username}
+                onChange={(e) => setAddForm({ ...addForm, username: e.target.value })}
+                placeholder="e.g. johndoe"
+                className="h-10 rounded-lg border-gray-200"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Password</Label>
+              <Input
+                type="password"
+                value={addForm.password}
+                onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                placeholder="Min 6 characters"
+                className="h-10 rounded-lg border-gray-200"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">Employee ID</Label>
+                <Input
+                  value={addForm.employeeId}
+                  onChange={(e) => setAddForm({ ...addForm, employeeId: e.target.value })}
+                  placeholder="EMP-001"
+                  className="h-10 rounded-lg border-gray-200"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">Position</Label>
+                <Input
+                  value={addForm.position}
+                  onChange={(e) => setAddForm({ ...addForm, position: e.target.value })}
+                  placeholder="e.g. Camera Operator"
+                  className="h-10 rounded-lg border-gray-200"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Department</Label>
+              <Input
+                value={addForm.department}
+                onChange={(e) => setAddForm({ ...addForm, department: e.target.value })}
+                placeholder="e.g. Production"
+                className="h-10 rounded-lg border-gray-200"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)} className="rounded-lg border-gray-200">Cancel</Button>
+            <Button
+              onClick={() => addMutation.mutate(addForm)}
+              disabled={addMutation.isPending || !addForm.username || !addForm.password || !addForm.employeeId || !addForm.position || !addForm.department}
+              className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg"
+            >
+              {addMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Add Employee
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0 }}
-        >
-          <div className="ufmi-card p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Employees</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalEmployees}</p>
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-2xl" />
+          ))}
+        </div>
+      ) : isError || !stats ? (
+        <div className="ufmi-card p-8 flex flex-col items-center text-center">
+          <AlertCircle className="h-10 w-10 text-amber-400 mb-3" />
+          <p className="text-sm font-medium text-gray-700">Unable to load dashboard statistics</p>
+          <p className="text-xs text-gray-400 mt-1">Please check your connection and try again.</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4 rounded-lg border-gray-200 text-xs"
+            onClick={() => qc.invalidateQueries({ queryKey: ['admin-stats'] })}
+          >
+            Retry
+          </Button>
+        </div>
+      ) : (
+        <>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0 }}
+          >
+            <div className="ufmi-card p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Total Employees</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalEmployees}</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-[#0B1F6D]/5 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-[#0B1F6D]" />
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#0B1F6D]/5 flex items-center justify-center">
-                <Users className="h-5 w-5 text-[#0B1F6D]" />
-              </div>
-            </div>
-            <Badge className="mt-3 bg-green-50 text-green-700 border-green-200 rounded-full px-2 text-[10px] font-medium">
-              +12% from last month
-            </Badge>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-        >
-          <div className="ufmi-card p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Active Employees</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeEmployees}</p>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
-                <UserCheck className="h-5 w-5 text-green-600" />
-              </div>
-            </div>
-            <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full bg-green-500 rounded-full" style={{ width: `${(stats.activeEmployees / Math.max(stats.totalEmployees, 1)) * 100}%` }} />
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <div className="ufmi-card p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Pending Reports</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{Math.max(pendingReports, 0)}</p>
-              </div>
-              <Badge className="bg-[#D94B2B]/10 text-[#D94B2B] rounded-full px-2.5 text-[10px] font-bold mt-1">
-                URGENT
+              <Badge className="mt-3 bg-green-50 text-green-700 border-green-200 rounded-full px-2 text-[10px] font-medium">
+                +12% from last month
               </Badge>
             </div>
-            <p className="text-xs text-gray-400 mt-3">{stats.todayReports} of {stats.activeEmployees} submitted today</p>
-          </div>
-        </motion.div>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-        >
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <div className="ufmi-card p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Active Employees</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeEmployees}</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
+                  <UserCheck className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+              <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full" style={{ width: `${(stats.activeEmployees / Math.max(stats.totalEmployees, 1)) * 100}%` }} />
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <div className="ufmi-card p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Pending Reports</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">{Math.max(pendingReports, 0)}</p>
+                </div>
+                <Badge className="bg-[#D94B2B]/10 text-[#D94B2B] rounded-full px-2.5 text-[10px] font-bold mt-1">
+                  URGENT
+                </Badge>
+              </div>
+              <p className="text-xs text-gray-400 mt-3">{stats.todayReports} of {stats.activeEmployees} submitted today</p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
           <div className="ufmi-card-dark p-6">
             <div className="flex items-start justify-between">
               <div>
@@ -1161,31 +1248,37 @@ function AdminOverview() {
           <h2 className="text-base font-semibold text-gray-900">Recent Reports</h2>
           <p className="text-sm text-gray-500 mt-0.5">Last 10 submitted reports</p>
         </div>
-        <div className="overflow-hidden rounded-xl border border-gray-100">
-          <Table>
-            <TableHeader className="ufmi-table-header bg-gray-50/80">
-              <TableRow className="border-b border-gray-100 hover:bg-transparent">
-                <TableHead>Date</TableHead>
-                <TableHead>Employee</TableHead>
-                <TableHead className="hidden md:table-cell">Position</TableHead>
-                <TableHead className="hidden lg:table-cell">Department</TableHead>
-                <TableHead>Activity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {stats.recentReports.map((r) => (
-                <TableRow key={r.id} className="border-b border-gray-50 last:border-0">
-                  <TableCell className="text-sm text-gray-600">{format(parseISO(r.date), 'MMM d')}</TableCell>
-                  <TableCell className="text-sm font-medium text-gray-900">{r.user?.username}</TableCell>
-                  <TableCell className="text-sm text-gray-500 hidden md:table-cell">{r.user?.profile?.position || '-'}</TableCell>
-                  <TableCell className="text-sm text-gray-500 hidden lg:table-cell">{r.user?.profile?.department || '-'}</TableCell>
-                  <TableCell className="text-sm text-gray-600 max-w-[280px] truncate">{r.activityText}</TableCell>
+        {stats.recentReports.length === 0 ? (
+          <p className="text-gray-400 text-sm py-4">No reports submitted yet.</p>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-gray-100">
+            <Table>
+              <TableHeader className="ufmi-table-header bg-gray-50/80">
+                <TableRow className="border-b border-gray-100 hover:bg-transparent">
+                  <TableHead>Date</TableHead>
+                  <TableHead>Employee</TableHead>
+                  <TableHead className="hidden md:table-cell">Position</TableHead>
+                  <TableHead className="hidden lg:table-cell">Department</TableHead>
+                  <TableHead>Activity</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {stats.recentReports.map((r) => (
+                  <TableRow key={r.id} className="border-b border-gray-50 last:border-0">
+                    <TableCell className="text-sm text-gray-600">{format(parseISO(r.date), 'MMM d')}</TableCell>
+                    <TableCell className="text-sm font-medium text-gray-900">{r.user?.username}</TableCell>
+                    <TableCell className="text-sm text-gray-500 hidden md:table-cell">{r.user?.profile?.position || '-'}</TableCell>
+                    <TableCell className="text-sm text-gray-500 hidden lg:table-cell">{r.user?.profile?.department || '-'}</TableCell>
+                    <TableCell className="text-sm text-gray-600 max-w-[280px] truncate">{r.activityText}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
+      </>)}
+      {/* end stats-dependent content */}
 
       {/* Password Reset Requests */}
       <PasswordResetRequests />
