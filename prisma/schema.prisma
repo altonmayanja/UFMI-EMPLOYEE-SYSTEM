@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("employee") // "admin" | "employee"
+  status       String   @default("active")   // "active" | "suspended" | "archived"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile      EmployeeProfile?
+  reports      DailyReport[]
+  auditLogs    AuditLog[]
+}
+
+model EmployeeProfile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  employeeId String   @unique // unique company ID (e.g., EMP-001)
+  position   String   // predefined position
+  department String   // predefined department
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyReport {
+  id           String   @id @default(cuid())
+  userId       String
+  date         String   // YYYY-MM-DD format
+  activityText String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date]) // one report per user per day
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // "login", "report_created", "employee_created", "export", etc.
+  details   String?  // JSON string with additional details
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
