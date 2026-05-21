@@ -41,9 +41,6 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from '@/components/ui/sheet'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 
 // =====================================================================
@@ -235,7 +232,7 @@ function LoginPage() {
 }
 
 // =====================================================================
-// SIDEBAR NAVIGATION (shared)
+// NAVIGATION ITEMS
 // =====================================================================
 
 const employeeNavItems: { key: EmployeeView; label: string; icon: React.ReactNode }[] = [
@@ -244,72 +241,143 @@ const employeeNavItems: { key: EmployeeView; label: string; icon: React.ReactNod
 ]
 
 const adminNavItems: { key: AdminView; label: string; icon: React.ReactNode }[] = [
-  { key: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
+  { key: 'overview', label: 'Dashboard', icon: <BarChart3 className="h-4 w-4" /> },
   { key: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" /> },
-  { key: 'reports', label: 'Reports', icon: <FileText className="h-4 w-4" /> },
+  { key: 'reports', label: 'All Reports', icon: <FileText className="h-4 w-4" /> },
   { key: 'export', label: 'Export', icon: <Download className="h-4 w-4" /> },
 ]
 
-function SidebarNavContent({
+// =====================================================================
+// TOP NAVIGATION BAR (web-style layout)
+// =====================================================================
+
+function TopNavBar({
   isAdmin,
   currentView,
   onNavigate,
   onLogout,
-  onClose,
 }: {
   isAdmin: boolean
   currentView: string
   onNavigate: (view: string) => void
   onLogout: () => void
-  onClose?: () => void
 }) {
   const items = isAdmin ? adminNavItems : employeeNavItems
   const user = useAuthStore((s) => s.user)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-4 py-5">
-        <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center">
-          <ClipboardList className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="font-semibold text-sm text-gray-900 truncate">Daily Report</h2>
-          <p className="text-xs text-gray-500 truncate">{user?.username}</p>
-        </div>
-      </div>
-      <Separator />
-      <ScrollArea className="flex-1 px-3 py-3">
-        <nav className="space-y-1">
-          {items.map((item) => (
+    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo + Brand */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center">
+              <ClipboardList className="w-5 h-5 text-white" />
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-base font-bold text-gray-900 leading-none">Daily Report System</h1>
+              <p className="text-[11px] text-gray-400 mt-0.5">Employee Management Portal</p>
+            </div>
+          </div>
+
+          {/* Desktop Navigation Links */}
+          <nav className="hidden md:flex items-center gap-1">
+            {items.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => onNavigate(item.key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentView === item.key
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Right side: User + Sign Out */}
+          <div className="flex items-center gap-3">
+            {/* Desktop user info */}
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                <span className="text-xs font-bold text-gray-600 uppercase">{(user?.username || 'U').charAt(0)}</span>
+              </div>
+              <div className="hidden lg:block">
+                <p className="text-sm font-medium text-gray-700 leading-none">{user?.username}</p>
+                <p className="text-[11px] text-gray-400 capitalize">{user?.role}</p>
+              </div>
+            </div>
+
+            <Separator orientation="vertical" className="hidden sm:block h-8" />
+
+            {/* Sign out button - desktop */}
             <button
-              key={item.key}
-              onClick={() => {
-                onNavigate(item.key)
-                onClose?.()
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
-                currentView === item.key
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`}
+              onClick={onLogout}
+              className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
             >
-              {item.icon}
-              {item.label}
+              <LogOut className="h-4 w-4" />
+              <span className="hidden lg:inline">Sign Out</span>
             </button>
-          ))}
-        </nav>
-      </ScrollArea>
-      <Separator />
-      <div className="p-3">
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign Out
-        </button>
+
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="md:hidden flex items-center justify-center w-9 h-9 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile dropdown menu */}
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="md:hidden border-t border-gray-100 py-3"
+          >
+            <div className="flex items-center gap-2 px-3 py-2 mb-2">
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                <span className="text-xs font-bold text-gray-600 uppercase">{(user?.username || 'U').charAt(0)}</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700">{user?.username}</p>
+                <p className="text-[11px] text-gray-400 capitalize">{user?.role}</p>
+              </div>
+            </div>
+            <nav className="space-y-1">
+              {items.map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => { onNavigate(item.key); setMobileOpen(false) }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-left ${
+                    currentView === item.key
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+            <Separator className="my-2" />
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 transition-colors text-left"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
+          </motion.div>
+        )}
       </div>
-    </div>
+    </header>
   )
 }
 
@@ -1503,7 +1571,6 @@ export default function Home() {
   const { isAuthenticated, isAdmin, isInitialized, initialize, logout } = useAuthStore()
   const [employeeView, setEmployeeView] = useState<EmployeeView>('submit')
   const [adminView, setAdminView] = useState<AdminView>('overview')
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     initialize()
@@ -1570,74 +1637,43 @@ export default function Home() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen flex bg-gray-50">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 border-r bg-white">
-          <SidebarNavContent
-            isAdmin={isAdmin}
-            currentView={currentView}
-            onNavigate={handleNavigate}
-            onLogout={handleLogout}
-          />
-        </aside>
+      <div className="min-h-screen bg-gray-50/50 flex flex-col">
+        {/* Top Navigation Bar */}
+        <TopNavBar
+          isAdmin={isAdmin}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+          onLogout={handleLogout}
+        />
 
-        {/* Main Content */}
-        <div className="flex-1 lg:pl-64">
-          {/* Mobile Header */}
-          <header className="sticky top-0 z-40 bg-white border-b lg:hidden">
-            <div className="flex items-center h-14 px-4 gap-3">
-              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-72 p-0">
-                  <SheetHeader className="sr-only">
-                    <SheetTitle>Navigation</SheetTitle>
-                  </SheetHeader>
-                  <SidebarNavContent
-                    isAdmin={isAdmin}
-                    currentView={currentView}
-                    onNavigate={handleNavigate}
-                    onLogout={handleLogout}
-                    onClose={() => setMobileMenuOpen(false)}
-                  />
-                </SheetContent>
-              </Sheet>
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center">
-                  <ClipboardList className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-semibold text-sm">Daily Report</span>
-              </div>
+        {/* Page Content */}
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentView}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-gray-100 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+              <p className="text-xs text-gray-400">
+                Daily Report System &middot; {format(new Date(), 'yyyy')}
+              </p>
+              <p className="text-xs text-gray-400">
+                {isAdmin ? 'Admin Portal' : 'Employee Portal'}
+              </p>
             </div>
-          </header>
-
-          {/* Page Content */}
-          <main className="p-4 sm:p-6 lg:p-8">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentView}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                {renderContent()}
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Sticky Footer */}
-            <footer className="mt-auto pt-8 pb-4">
-              <div className="text-center">
-                <p className="text-xs text-gray-400">
-                  Daily Report System &middot; {format(new Date(), 'yyyy')}
-                </p>
-              </div>
-            </footer>
-          </main>
-        </div>
+          </div>
+        </footer>
       </div>
       <Toaster position="top-right" richColors theme="light" />
     </QueryClientProvider>
