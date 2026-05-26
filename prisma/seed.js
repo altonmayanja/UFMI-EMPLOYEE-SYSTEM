@@ -2,19 +2,9 @@
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Load and set .env BEFORE importing PrismaClient
-const envPath = path.resolve(__dirname, '../.env.local');
-const envConfig = dotenv.config({ path: envPath });
-
-if (envConfig.error) {
-  console.error('Failed to load .env:', envConfig.error.message);
-  process.exit(1);
-}
-
-// Manually set DATABASE_URL in process.env to bypass Prisma's WASM .env parser bug
-if (envConfig.parsed?.DATABASE_URL) {
-  process.env.DATABASE_URL = envConfig.parsed.DATABASE_URL;
-}
+// Load .env file
+const envPath = path.resolve(__dirname, '../.env');
+dotenv.config({ path: envPath });
 
 // Now import Prisma after env vars are set
 const { PrismaClient } = require('@prisma/client');
@@ -24,7 +14,7 @@ async function seed() {
   const prisma = new PrismaClient();
 
   try {
-    console.log('🌱 Seeding database...');
+    console.log('Seeding database...');
 
     // Check if admin already exists
     const existingAdmin = await prisma.user.findUnique({
@@ -32,7 +22,7 @@ async function seed() {
     });
 
     if (existingAdmin) {
-      console.log('✅ Admin user already exists, skipping creation.');
+      console.log('Admin user already exists, skipping creation.');
     } else {
       const passwordHash = await bcrypt.hash('admin123', 12);
       const admin = await prisma.user.create({
@@ -43,7 +33,7 @@ async function seed() {
           status: 'active',
         }
       });
-      console.log('✅ Admin user created:', admin.username);
+      console.log('Admin user created:', admin.username);
     }
 
     // Check for sample employees
@@ -52,7 +42,7 @@ async function seed() {
     });
 
     if (employeeCount > 0) {
-      console.log(`✅ ${employeeCount} employee(s) already exist, skipping.`);
+      console.log(`${employeeCount} employee(s) already exist, skipping.`);
     } else {
       const employees = [
         { username: 'john', password: 'emp123', position: 'Field Officer', department: 'Operations', empId: 'EMP-001' },
@@ -79,17 +69,17 @@ async function seed() {
             }
           }
         });
-        console.log(`✅ Employee created: ${emp.username} (${emp.position})`);
+        console.log(`Employee created: ${emp.username} (${emp.position})`);
       }
     }
 
-    console.log('\n🎉 Seeding complete!');
+    console.log('\nSeeding complete!');
     console.log('Credentials:');
     console.log('  Admin: admin / admin123');
     console.log('  Employees: john, sarah, david, grace, peter / emp123');
 
   } catch (error) {
-    console.error('❌ Seeding failed:', error);
+    console.error('Seeding failed:', error);
     process.exit(1);
   } finally {
     await prisma.$disconnect();

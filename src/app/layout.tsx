@@ -11,16 +11,16 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "UFMI Portal - Operations Dashboard",
-  description: "Uganda Film Movie Industry Operations Portal. Submit, track, and manage daily work reports.",
-  keywords: ["UFMI", "daily report", "employee management", "operations portal", "Uganda Film"],
-  authors: [{ name: "UFMI Enterprise" }],
+  description: "Uganda Federation of Movie Industry Operations Portal. Submit, track, and manage daily work reports.",
+  keywords: ["UFMI", "daily report", "employee management", "operations portal", "Uganda Federation of Movie Industry"],
+  authors: [{ name: "Uganda Federation of Movie Industry" }],
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
     title: "UFMI Portal - Operations Dashboard",
-    description: "Uganda Film Movie Industry Operations Portal",
+    description: "Uganda Federation of Movie Industry Operations Portal",
     type: "website",
   },
 };

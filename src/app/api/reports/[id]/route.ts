@@ -22,11 +22,26 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { activityText } = body
+    const { activityText, location, timeIn, timeOut, comments } = body
 
     if (!activityText) {
       return NextResponse.json(
         { error: 'Activity text is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate time format (HH:MM) if provided
+    const timeRegex = /^\d{2}:\d{2}$/
+    if (timeIn && !timeRegex.test(timeIn)) {
+      return NextResponse.json(
+        { error: 'Invalid time-in format. Use HH:MM (e.g. 08:00)' },
+        { status: 400 }
+      )
+    }
+    if (timeOut && !timeRegex.test(timeOut)) {
+      return NextResponse.json(
+        { error: 'Invalid time-out format. Use HH:MM (e.g. 17:00)' },
         { status: 400 }
       )
     }
@@ -44,7 +59,13 @@ export async function PUT(
 
     const updated = await db.dailyReport.update({
       where: { id },
-      data: { activityText: activityText.trim() },
+      data: {
+        activityText: activityText.trim(),
+        location: location?.trim() || null,
+        timeIn: timeIn?.trim() || null,
+        timeOut: timeOut?.trim() || null,
+        comments: comments?.trim() || null,
+      },
     })
 
     return NextResponse.json(updated)

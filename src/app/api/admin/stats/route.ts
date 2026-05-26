@@ -29,7 +29,6 @@ export async function GET(request: NextRequest) {
       totalReports,
       todayReports,
       monthReports,
-      departmentStats,
       missingTodayReports,
     ] = await Promise.all([
       db.user.count({ where: { role: 'employee' } }),
@@ -38,23 +37,6 @@ export async function GET(request: NextRequest) {
       db.dailyReport.count(),
       db.dailyReport.count({ where: { date: today } }),
       db.dailyReport.count({ where: { date: { startsWith: currentMonth } } }),
-      // Department breakdown
-      db.user.groupBy({
-        by: ['id'],
-        where: { role: 'employee', status: 'active' },
-        _count: { id: true },
-      }).then(async (users) => {
-        const activeUsers = await db.user.findMany({
-          where: { role: 'employee', status: 'active' },
-          include: { profile: true },
-        })
-        const deptMap: Record<string, number> = {}
-        for (const u of activeUsers) {
-          const dept = u.profile?.department || 'Unassigned'
-          deptMap[dept] = (deptMap[dept] || 0) + 1
-        }
-        return Object.entries(deptMap).map(([department, count]) => ({ department, count }))
-      }),
       // Employees missing today's report
       db.user.findMany({
         where: {
@@ -67,7 +49,7 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           username: true,
-          profile: { select: { employeeId: true, position: true, department: true } },
+          profile: { select: { employeeId: true, position: true } },
         },
       }),
     ])
@@ -79,7 +61,7 @@ export async function GET(request: NextRequest) {
         user: {
           select: {
             username: true,
-            profile: { select: { employeeId: true, position: true, department: true } },
+            profile: { select: { employeeId: true, position: true } },
           },
         },
       },
@@ -95,7 +77,6 @@ export async function GET(request: NextRequest) {
       monthReports,
       currentMonth,
       today,
-      departmentStats,
       missingTodayReports,
       recentReports,
     })

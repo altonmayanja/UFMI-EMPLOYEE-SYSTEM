@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       include: {
         user: {
           select: {
-            profile: { select: { employeeId: true, position: true, department: true } },
+            profile: { select: { employeeId: true, position: true } },
           },
         },
       },

@@ -3,7 +3,6 @@ import { create } from 'zustand'
 export interface UserProfile {
   employeeId?: string
   position?: string
-  department?: string
 }
 
 export interface User {
@@ -33,7 +32,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   isInitialized: false,
 
   login: (token: string, user: User) => {
-    localStorage.setItem('token', token)
+    // Token is only kept in memory (Zustand) — never persisted.
+    // Closing the browser or refreshing will always return to login.
     set({
       token,
       user,
@@ -43,6 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    // Clean up any stale tokens from previous versions
     localStorage.removeItem('token')
     set({
       token: null,
@@ -53,35 +54,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initialize: async () => {
-    try {
-      const storedToken = localStorage.getItem('token')
-      if (!storedToken) {
-        set({ isInitialized: true })
-        return
-      }
-
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          Authorization: `Bearer ${storedToken}`,
-        },
-      })
-
-      if (response.ok) {
-        const user = await response.json()
-        set({
-          token: storedToken,
-          user,
-          isAuthenticated: true,
-          isAdmin: user.role === 'admin',
-          isInitialized: true,
-        })
-      } else {
-        localStorage.removeItem('token')
-        set({ isInitialized: true })
-      }
-    } catch {
-      localStorage.removeItem('token')
-      set({ isInitialized: true })
-    }
+    // Always start at login — remove any cached tokens from previous versions
+    localStorage.removeItem('token')
+    set({ isInitialized: true })
   },
 }))

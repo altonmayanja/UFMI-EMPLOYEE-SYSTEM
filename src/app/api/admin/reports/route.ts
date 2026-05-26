@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date')
     const month = searchParams.get('month') // YYYY-MM format
     const userId = searchParams.get('userId')
-    const department = searchParams.get('department')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
@@ -37,12 +36,6 @@ export async function GET(request: NextRequest) {
 
     if (userId) {
       where.userId = userId
-    }
-
-    if (department) {
-      where.user = {
-        profile: { department },
-      }
     }
 
     const [reports, total] = await Promise.all([
@@ -59,7 +52,6 @@ export async function GET(request: NextRequest) {
                 select: {
                   employeeId: true,
                   position: true,
-                  department: true,
                 },
               },
             },

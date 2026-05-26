@@ -12,34 +12,17 @@ async function authenticateAdmin(request: NextRequest) {
   return payload
 }
 
-// Predefined positions and departments
+// Predefined positions
 const POSITIONS = [
-  'Software Engineer',
-  'Senior Software Engineer',
-  'Junior Developer',
-  'QA Engineer',
-  'DevOps Engineer',
-  'UI/UX Designer',
-  'Product Manager',
-  'Project Manager',
-  'Data Analyst',
-  'Team Lead',
-  'HR Manager',
-  'Finance Officer',
-  'Administrator',
-]
-
-const DEPARTMENTS = [
-  'Engineering',
-  'Design',
-  'Product',
-  'Marketing',
-  'Sales',
-  'Human Resources',
-  'Finance',
-  'Operations',
-  'Quality Assurance',
-  'IT Support',
+  'Operations and Administrative Officer',
+  'Accounting Officer',
+  'Licensing Officer',
+  'Chief Executive Officer',
+  'Copyright Inspector',
+  'IT Officer',
+  'Membership Officer',
+  'Asst. Accounting Officer',
+  'Driver',
 ]
 
 // GET /api/admin/employees - List all employees
@@ -51,15 +34,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const department = searchParams.get('department')
     const status = searchParams.get('status')
     const search = searchParams.get('search')
 
     const where: Record<string, unknown> = {}
 
-    if (department) {
-      where.profile = { department }
-    }
     if (status) {
       where.status = status
     }
@@ -77,7 +56,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ employees, positions: POSITIONS, departments: DEPARTMENTS })
+    return NextResponse.json({ employees, positions: POSITIONS })
   } catch (error) {
     console.error('Get employees error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -93,27 +72,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { username, password, employeeId, position, department } = body
+    const { username, password, employeeId, position } = body
 
     // Validate required fields
-    if (!username || !password || !employeeId || !position || !department) {
+    if (!username || !password || !employeeId || !position) {
       return NextResponse.json(
-        { error: 'All fields are required: username, password, employeeId, position, department' },
+        { error: 'All fields are required: username, password, employeeId, position' },
         { status: 400 }
       )
     }
 
-    // Validate position and department
+    // Validate position
     if (!POSITIONS.includes(position)) {
       return NextResponse.json(
         { error: `Invalid position. Must be one of: ${POSITIONS.join(', ')}` },
-        { status: 400 }
-      )
-    }
-
-    if (!DEPARTMENTS.includes(department)) {
-      return NextResponse.json(
-        { error: `Invalid department. Must be one of: ${DEPARTMENTS.join(', ')}` },
         { status: 400 }
       )
     }
@@ -150,7 +122,6 @@ export async function POST(request: NextRequest) {
           create: {
             employeeId,
             position,
-            department,
           },
         },
       },
@@ -167,7 +138,6 @@ export async function POST(request: NextRequest) {
           username: user.username,
           employeeId,
           position,
-          department,
         }),
       },
     })

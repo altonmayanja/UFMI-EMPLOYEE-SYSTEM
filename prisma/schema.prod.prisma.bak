@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("employee") // "admin" | "employee"
+  status       String   @default("active")   // "active" | "suspended" | "archived"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile      EmployeeProfile?
+  reports      DailyReport[]
+  auditLogs    AuditLog[]
+  passwordResetRequests PasswordResetRequest[]
+  monthlyReports MonthlyReport[]
+  notifications Notification[]
+}
+
+model MonthlyReport {
+  id           String   @id @default(cuid())
+  userId       String
+  month        String   // YYYY-MM format
+  reportData   String   @db.Text // JSON - the full generated report
+
+  // Computed summary fields for quick display
+  totalReports     Int
+  totalActivities  Int
+  submissionRate   Float
+  categoryBreakdown String @db.Text // JSON
+  summary          String @db.Text // Professional summary text
+  achievements     String @db.Text // JSON array of achievement strings
+
+  status       String   @default("draft") // "draft" | "generated" | "approved" | "archived"
+  generatedBy  String?  // userId of admin who generated, or "self" for employee
+  approvedBy   String?  // userId of manager who approved
+  approvedAt   DateTime?
+
+  // Regeneration tracking
+  originalCreatedAt    DateTime?  // When the first version was created
+  lastRegeneratedAt    DateTime?  // When it was last regenerated
+  regeneratedBy        String?    // userId who last regenerated
+  regenerationCount    Int        @default(0) // How many times regenerated
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month]) // one monthly report per user per month
+  @@index([userId])
+  @@index([month])
+  @@index([status])
+}
+
+model EmployeeProfile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  employeeId String   @unique // unique company ID (e.g., EMP-001)
+  position   String   // predefined position
+  department String   // predefined department
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyReport {
+  id           String   @id @default(cuid())
+  userId       String
+  date         String   // YYYY-MM-DD format
+  activityText String   @db.Text
+  location     String?  // Where the activity was performed
+  timeIn       String?  // HH:MM format - clock-in time
+  timeOut      String?  // HH:MM format - clock-out time
+  comments     String?  @db.Text // Additional comments or remarks
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date]) // one report per user per day
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // "login", "report_created", "employee_created", "export", etc.
+  details   String?  @db.Text // JSON string with additional details
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?  // null = broadcast to all employees
+  title     String
+  message   String   @db.Text
+  type      String   @default("info") // "info" | "reminder" | "warning" | "success" | "announcement"
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model PasswordResetRequest {
+  id        String   @id @default(cuid())
+  userId    String?
+  username  String   // username of the requester (may not have account)
+  status    String   @default("pending") // "pending" | "resolved" | "rejected"
+  message   String?  @db.Text // optional message from the requester
+  resolvedBy String? // userId of admin who resolved it
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}

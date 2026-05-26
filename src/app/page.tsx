@@ -7,18 +7,21 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
 import { format, subMonths, addMonths, parseISO } from 'date-fns'
 import {
-  FileText, Send, Users, BarChart3, Download,
+  FileText, Send, Users, Download,
   ChevronLeft, ChevronRight, LogOut, Menu, Plus, Pencil,
   Trash2, Loader2, CalendarDays, UserCheck, AlertCircle,
   Search, X, CheckCircle2, Clock,
-  Building2, Briefcase, UserCircle, Eye, ChevronDown,
+  UserCircle, Eye, ChevronDown,
   Clapperboard, Shield, Bell, HelpCircle, ArrowRight,
-  Lock, Film, LayoutDashboard, ClipboardCheck, CircleUser,
-  ChevronUp, Activity, TrendingUp,
+  Lock, LayoutDashboard, ClipboardCheck, CircleUser,
+  ChevronUp, TrendingUp, Settings, MessageSquare,
+  Info, Globe, Phone, Mail, BookOpen, MonitorSmartphone,
+  BarChart3, RefreshCw, UsersRound,
 } from 'lucide-react'
 
 import { useAuthStore, type User } from '@/store/auth-store'
 import { apiPost, apiGet, apiPut, apiDelete, apiPatch, ApiError } from '@/lib/api'
+import type { MonthlyReportListItem, MonthlyReportDetail, BulkGenerateResult, PaginatedReports as MonthlyPaginatedReports } from '@/types/report'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -47,7 +50,7 @@ import {
 } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import {
-  Sheet, SheetContent, SheetTrigger, SheetTitle,
+  Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader, SheetDescription,
 } from '@/components/ui/sheet'
 
 // =====================================================================
@@ -59,13 +62,17 @@ interface DailyReport {
   userId: string
   date: string
   activityText: string
+  location?: string | null
+  timeIn?: string | null
+  timeOut?: string | null
+  comments?: string | null
   createdAt: string
   user?: {
     id: string
     username: string
     role: string
     status: string
-    profile?: { employeeId?: string; position?: string; department?: string }
+    profile?: { employeeId?: string; position?: string }
   }
 }
 
@@ -75,7 +82,7 @@ interface Employee {
   role: string
   status: string
   createdAt: string
-  profile?: { employeeId?: string; position?: string; department?: string }
+  profile?: { employeeId?: string; position?: string }
   _count?: { reports: number }
 }
 
@@ -88,12 +95,11 @@ interface AdminStats {
   monthReports: number
   currentMonth: string
   today: string
-  departmentStats: { department: string; count: number }[]
-  missingTodayReports: { id: string; username: string; profile?: { employeeId?: string; position?: string; department?: string } }[]
+  missingTodayReports: { id: string; username: string; profile?: { employeeId?: string; position?: string } }[]
   recentReports: DailyReport[]
 }
 
-interface PaginatedReports {
+interface DailyPaginatedReports {
   reports: DailyReport[]
   pagination: { page: number; limit: number; total: number; totalPages: number }
 }
@@ -101,11 +107,10 @@ interface PaginatedReports {
 interface EmployeesData {
   employees: Employee[]
   positions: string[]
-  departments: string[]
 }
 
-type EmployeeView = 'submit' | 'my-reports'
-type AdminView = 'overview' | 'employees' | 'reports' | 'export'
+type EmployeeView = 'submit' | 'my-reports' | 'monthly-reports' | 'settings'
+type AdminView = 'overview' | 'employees' | 'reports' | 'monthly-reports' | 'export' | 'settings'
 
 // =====================================================================
 // QUERY CLIENT
@@ -129,24 +134,152 @@ const adminNavItems: { key: AdminView; label: string; icon: React.ReactNode }[] 
   { key: 'overview', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
   { key: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" /> },
   { key: 'reports', label: 'Reports', icon: <FileText className="h-4 w-4" /> },
+  { key: 'monthly-reports', label: 'Monthly Reports', icon: <BarChart3 className="h-4 w-4" /> },
   { key: 'export', label: 'Export', icon: <Download className="h-4 w-4" /> },
+  { key: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
 ]
 
 const employeeNavItems: { key: EmployeeView; label: string; icon: React.ReactNode }[] = [
   { key: 'submit', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
   { key: 'my-reports', label: 'My Reports', icon: <FileText className="h-4 w-4" /> },
+  { key: 'monthly-reports', label: 'Monthly Report', icon: <BarChart3 className="h-4 w-4" /> },
+  { key: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
 ]
+
+// =====================================================================
+// HELP CENTER DIALOG
+// =====================================================================
+
+function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
+
+  const faqs = [
+    {
+      q: 'How do I submit a daily report?',
+      a: 'Go to the Dashboard (employee view) and fill out the Daily Activity Report form. Select the date, describe your activities, and click "Submit Report". You can only submit one report per day.',
+    },
+    {
+      q: 'What is the daily report deadline?',
+      a: 'Reports should be submitted by 6:00 PM daily. The system tracks consistent reporting for performance review purposes.',
+    },
+    {
+      q: 'How do I reset my password?',
+      a: 'Click "Forgot Password?" on the login page and submit a request. The administrator will review it and update your credentials.',
+    },
+    {
+      q: 'Can I edit or delete a submitted report?',
+      a: 'Yes, go to "My Reports" and use the edit (pencil) or delete (trash) icons next to any report. Note that deleted reports cannot be recovered.',
+    },
+    {
+      q: 'How do admins export reports?',
+      a: 'Navigate to the "Export" section in the admin dashboard. Select the desired month and click "Download Excel" to get a comprehensive Excel file with all reports.',
+    },
+    {
+      q: 'How do I change my account settings?',
+      a: 'Click on "Settings" in the sidebar navigation. There you can update your password, view your account information, and manage display preferences.',
+    },
+  ]
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="overflow-y-auto" aria-label="Help Center">
+        <SheetHeader className="px-6 pt-8">
+          <SheetTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <HelpCircle className="h-5 w-5 text-[#0B1F6D]" />
+            Help Center
+          </SheetTitle>
+          <SheetDescription>Find answers to common questions and contact support</SheetDescription>
+        </SheetHeader>
+
+        <div className="px-6 pb-8 space-y-6">
+          {/* FAQ Section */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+              <BookOpen className="h-4 w-4 text-[#0B1F6D]" />
+              Frequently Asked Questions
+            </h3>
+            <div className="space-y-2">
+              {faqs.map((faq, i) => (
+                <div key={i} className="rounded-lg border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
+                    className="w-full flex items-center justify-between gap-3 p-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-gray-700">{faq.q}</span>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${expandedFaq === i ? 'rotate-180' : ''}`} />
+                  </button>
+                  {expandedFaq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      className="px-3 pb-3"
+                    >
+                      <p className="text-sm text-gray-500 leading-relaxed">{faq.a}</p>
+                    </motion.div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+              <MessageSquare className="h-4 w-4 text-[#0B1F6D]" />
+              Contact Support
+            </h3>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                <Mail className="h-4 w-4 text-[#0B1F6D]" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Email</p>
+                  <p className="text-xs text-gray-500">ugandafmi3@gmail.com</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                <Phone className="h-4 w-4 text-[#0B1F6D]" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Phone</p>
+                  <p className="text-xs text-gray-500">+256782823117</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                <MonitorSmartphone className="h-4 w-4 text-[#0B1F6D]" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Office Hours</p>
+                  <p className="text-xs text-gray-500">Mon - Fri, 8:00 AM - 5:00 PM EAT</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* System Info */}
+          <div className="rounded-xl bg-[#0B1F6D]/5 border border-[#0B1F6D]/10 p-4">
+            <h3 className="text-sm font-semibold text-[#0B1F6D] flex items-center gap-2 mb-2">
+              <Info className="h-4 w-4" />
+              System Information
+            </h3>
+            <div className="space-y-1.5 text-xs text-gray-500">
+              <p><span className="font-medium text-gray-700">Version:</span> 2.1.0</p>
+              <p><span className="font-medium text-gray-700">Platform:</span> UFMI Operations Portal</p>
+              <p><span className="font-medium text-gray-700">Last Updated:</span> June 2025</p>
+            </div>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
 
 // =====================================================================
 // LOGIN PAGE
 // =====================================================================
 
-function LoginPage() {
+function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [remember, setRemember] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
   const login = useAuthStore((s) => s.login)
 
@@ -187,7 +320,7 @@ function LoginPage() {
               <Image src="/logo.png" alt="UFMI Logo" width={64} height={64} className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">UFMI Portal</h1>
-            <p className="text-sm text-gray-500 mt-1">Uganda Film Movie Industry Operations</p>
+            <p className="text-sm text-gray-500 mt-1">Uganda Federation of Movie Industry</p>
           </div>
 
           <CardContent className="px-8 pb-8 pt-2">
@@ -234,16 +367,7 @@ function LoginPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-[#0B1F6D] focus:ring-[#0B1F6D]"
-                  />
-                  <span className="text-sm text-gray-600">Remember me for 30 days</span>
-                </label>
+              <div className="flex justify-end">
                 <button type="button" onClick={() => setForgotOpen(true)} className="text-sm font-medium text-[#0B1F6D] hover:text-[#1e3a8a] transition-colors">
                   Forgot Password?
                 </button>
@@ -270,7 +394,7 @@ function LoginPage() {
 
             {/* Footer links */}
             <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-100">
-              <button type="button" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#0B1F6D] transition-colors">
+              <button type="button" onClick={onHelpOpen} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#0B1F6D] transition-colors">
                 <HelpCircle className="h-3.5 w-3.5" />
                 Help Center
               </button>
@@ -290,7 +414,7 @@ function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-white/30 mt-6">
-          &copy; {new Date().getFullYear()} Uganda Film Movie Industry. All rights reserved.
+          &copy; {new Date().getFullYear()} Uganda Federation of Movie Industry. All rights reserved.
         </p>
 
         {/* Forgot Password Dialog */}
@@ -435,6 +559,7 @@ function Sidebar({
   onLogout,
   collapsed,
   onToggle,
+  onHelpOpen,
 }: {
   isAdmin: boolean
   currentView: string
@@ -442,6 +567,7 @@ function Sidebar({
   onLogout: () => void
   collapsed: boolean
   onToggle: () => void
+  onHelpOpen: () => void
 }) {
   const items = isAdmin ? adminNavItems : employeeNavItems
   const user = useAuthStore((s) => s.user)
@@ -507,9 +633,15 @@ function Sidebar({
         )}
 
         {!collapsed && (
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-blue-200/70 hover:bg-white/8 hover:text-white transition-all">
+          <button onClick={onHelpOpen} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-blue-200/70 hover:bg-white/8 hover:text-white transition-all">
             <HelpCircle className="h-4 w-4" />
             Help Center
+          </button>
+        )}
+
+        {collapsed && (
+          <button onClick={onHelpOpen} className="w-full flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium text-blue-200/70 hover:bg-white/8 hover:text-white transition-all" title="Help Center">
+            <HelpCircle className="h-4 w-4" />
           </button>
         )}
 
@@ -548,7 +680,7 @@ function Sidebar({
       {!collapsed && (
         <div className="px-4 pb-3">
           <p className="text-[9px] text-blue-300/25 leading-tight">
-            &copy; {new Date().getFullYear()} Uganda Film Movie Industry
+            &copy; {new Date().getFullYear()} Uganda Federation of Movie Industry
           </p>
         </div>
       )}
@@ -575,6 +707,7 @@ function MobileSidebar({
   onLogout,
   open,
   onOpenChange,
+  onHelpOpen,
 }: {
   isAdmin: boolean
   currentView: string
@@ -582,6 +715,7 @@ function MobileSidebar({
   onLogout: () => void
   open: boolean
   onOpenChange: (open: boolean) => void
+  onHelpOpen: () => void
 }) {
   const items = isAdmin ? adminNavItems : employeeNavItems
   const user = useAuthStore((s) => s.user)
@@ -636,6 +770,13 @@ function MobileSidebar({
             </div>
           </div>
           <button
+            onClick={() => { onHelpOpen(); onOpenChange(false) }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-blue-200/70 hover:bg-white/8 hover:text-white transition-all"
+          >
+            <HelpCircle className="h-4 w-4" />
+            Help Center
+          </button>
+          <button
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-300/80 hover:bg-red-500/15 hover:text-red-300 transition-all"
           >
@@ -657,13 +798,67 @@ function TopHeader({
   mobileOpen,
   onMobileOpenChange,
   isAdmin,
+  currentView,
+  onNavigate,
+  onSearch,
+  onHelpOpen,
 }: {
   onMenuToggle: () => void
   mobileOpen: boolean
   onMobileOpenChange: (open: boolean) => void
   isAdmin: boolean
+  currentView?: string
+  onNavigate?: (view: string) => void
+  onSearch?: (query: string) => void
+  onHelpOpen?: () => void
 }) {
   const user = useAuthStore((s) => s.user)
+  const [searchValue, setSearchValue] = useState('')
+  const [notifOpen, setNotifOpen] = useState(false)
+  const qc = useQueryClient()
+
+  // Real notifications from API
+  const { data: notifData, isLoading: notifLoading } = useQuery<{ notifications: Array<{ id: string; title: string; message: string; type: string; read: boolean; createdAt: string }>; unreadCount: number }>({
+    queryKey: ['notifications'],
+    queryFn: () => apiGet('/api/notifications'),
+    refetchInterval: 60000, // refresh every minute
+  })
+  const notifications = notifData?.notifications || []
+  const unreadCount = notifData?.unreadCount || 0
+
+  // Admin: also fetch password reset requests
+  const { data: resetData } = useQuery<{ requests: Array<{
+    id: string; username: string; status: string; message: string | null; createdAt: string;
+    user?: { profile?: { employeeId?: string; position?: string } }
+  }>; pendingCount: number }>({
+    queryKey: ['password-resets-pending'],
+    queryFn: () => apiGet('/api/admin/password-resets?status=pending'),
+    enabled: isAdmin,
+    refetchInterval: 30000,
+  })
+  const pendingResets = resetData?.pendingCount || 0
+  const resetRequests = resetData?.requests || []
+
+  const totalBadge = isAdmin ? (unreadCount + pendingResets) : unreadCount
+
+  const markAllRead = async () => {
+    await apiPost('/api/notifications', { action: 'mark-all-read' })
+    qc.invalidateQueries({ queryKey: ['notifications'] })
+  }
+
+  const markOneRead = async (id: string) => {
+    await apiPatch(`/api/notifications/${id}`, {})
+    qc.invalidateQueries({ queryKey: ['notifications'] })
+  }
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!searchValue.trim()) return
+    if (onSearch) {
+      onSearch(searchValue.trim())
+    }
+    setSearchValue('')
+  }
 
   return (
     <>
@@ -683,27 +878,42 @@ function TopHeader({
         </div>
 
         {/* Search */}
-        <div className="flex-1 max-w-md mx-auto">
+        <form onSubmit={handleSearch} className="flex-1 max-w-md mx-auto">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search operations, assets, or employees..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              placeholder="Search employees, reports, or positions..."
               className="h-10 pl-10 rounded-lg border-gray-200 bg-gray-50/50 text-sm focus:bg-white"
             />
           </div>
-        </div>
+        </form>
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          <button className="relative flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+          {/* Notification Bell */}
+          <button
+            onClick={() => setNotifOpen(true)}
+            className="relative flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+          >
             <Bell className="h-4 w-4" />
-            {isAdmin && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#D94B2B] rounded-full" />
-            )}
+            {totalBadge > 0 ? (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#D94B2B] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {totalBadge > 99 ? '99+' : totalBadge}
+              </span>
+            ) : null}
           </button>
-          <button className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
-            <HelpCircle className="h-4 w-4" />
-          </button>
+
+          {/* Help button (desktop) */}
+          {onHelpOpen && (
+            <button
+              onClick={onHelpOpen}
+              className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          )}
 
           <Separator orientation="vertical" className="h-8 mx-1 hidden sm:block" />
 
@@ -729,14 +939,133 @@ function TopHeader({
         </div>
       </header>
 
+      {/* Notification Sheet */}
+      <Sheet open={notifOpen} onOpenChange={setNotifOpen}>
+        <SheetContent side="right" className="overflow-y-auto" aria-label="Notifications">
+          <SheetHeader className="px-6 pt-8">
+            <SheetTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Bell className="h-5 w-5 text-[#0B1F6D]" />
+              Notifications
+            </SheetTitle>
+            <SheetDescription>
+              {isAdmin ? 'Password reset requests & system updates' : 'System notifications & reminders'}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="px-6 pb-8">
+            {notifLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-3 mt-4">
+                {/* Real Notifications */}
+                {notifications.length > 0 && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button onClick={markAllRead} className="text-[10px] font-medium text-[#0B1F6D] hover:underline">
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <ScrollArea className="max-h-[400px]">
+                      <div className="space-y-2">
+                        {notifications.slice(0, 20).map((notif) => {
+                          const iconBg = notif.type === 'warning' ? 'bg-amber-50' : notif.type === 'success' ? 'bg-green-50' : notif.type === 'announcement' ? 'bg-purple-50' : notif.type === 'reminder' ? 'bg-blue-50' : 'bg-gray-50'
+                          const iconColor = notif.type === 'warning' ? 'text-amber-500' : notif.type === 'success' ? 'text-green-600' : notif.type === 'announcement' ? 'text-purple-500' : notif.type === 'reminder' ? 'text-blue-500' : 'text-gray-500'
+                          const IconComp = notif.type === 'warning' ? AlertCircle : notif.type === 'success' ? CheckCircle2 : notif.type === 'reminder' ? Clock : Info
+                          return (
+                            <button
+                              key={notif.id}
+                              onClick={() => { if (!notif.read) markOneRead(notif.id) }}
+                              className={`w-full text-left flex items-start gap-3 p-3 rounded-lg border transition-colors ${notif.read ? 'border-transparent opacity-60' : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'}`}
+                            >
+                              <div className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0 mt-0.5`}>
+                                <IconComp className={`h-4 w-4 ${iconColor}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className={`text-sm font-medium text-gray-900 ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
+                                  {!notif.read && <span className="w-2 h-2 rounded-full bg-[#0B1F6D] shrink-0" />}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line line-clamp-3">{notif.message}</p>
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                  {format(parseISO(notif.createdAt), 'MMM d \'at\' h:mm a')}
+                                </p>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </>
+                )}
+
+                {/* Admin: Password Reset Requests */}
+                {isAdmin && (
+                  <>
+                    {notifications.length > 0 && <Separator className="my-2" />}
+                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Password Reset Requests</h3>
+                    {resetRequests.length === 0 ? (
+                      <div className="flex flex-col items-center py-4">
+                        <CheckCircle2 className="h-8 w-8 text-green-400 mb-1.5" />
+                        <p className="text-sm text-gray-500 font-medium">No pending requests</p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="max-h-[300px]">
+                        <div className="space-y-2">
+                          {resetRequests.map((req) => (
+                            <div key={req.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                              <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center shrink-0 mt-0.5">
+                                <Lock className="h-4 w-4 text-amber-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium text-gray-900">{req.username}</p>
+                                  {req.user?.profile?.position && (
+                                    <span className="text-xs text-gray-400">{req.user.profile.position}</span>
+                                  )}
+                                </div>
+                                {req.message && (
+                                  <p className="text-xs text-gray-500 truncate mt-0.5">&ldquo;{req.message}&rdquo;</p>
+                                )}
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                  {format(parseISO(req.createdAt), 'MMM d, yyyy \'at\' h:mm a')}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </>
+                )}
+
+                {/* Empty state */}
+                {notifications.length === 0 && (!isAdmin || resetRequests.length === 0) && (
+                  <div className="flex flex-col items-center py-8">
+                    <CheckCircle2 className="h-10 w-10 text-green-400 mb-2" />
+                    <p className="text-sm text-gray-500 font-medium">All caught up!</p>
+                    <p className="text-xs text-gray-400 mt-0.5">No new notifications right now.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Mobile sidebar */}
       <MobileSidebar
         isAdmin={isAdmin}
-        currentView={isAdmin ? 'overview' : 'submit'}
-        onNavigate={() => {}}
+        currentView={currentView || (isAdmin ? 'overview' : 'submit')}
+        onNavigate={(view) => { onNavigate?.(view) }}
         onLogout={() => useAuthStore.getState().logout()}
         open={mobileOpen}
         onOpenChange={onMobileOpenChange}
+        onHelpOpen={onHelpOpen || (() => {})}
       />
     </>
   )
@@ -788,13 +1117,13 @@ function PasswordResetRequests() {
     status: string
     message: string | null
     createdAt: string
-    user?: { profile?: { employeeId?: string; position?: string; department?: string } }
+    user?: { profile?: { employeeId?: string; position?: string } }
   }>; pendingCount: number }>({
     queryKey: ['password-resets'],
     queryFn: () => apiGet('/api/admin/password-resets?status=pending'),
   })
 
-  interface ResetRequest { id: string; username: string; status: string; message: string | null; createdAt: string; user?: { profile?: { employeeId?: string; position?: string; department?: string } } }
+  interface ResetRequest { id: string; username: string; status: string; message: string | null; createdAt: string; user?: { profile?: { employeeId?: string; position?: string } } }
   const [selectedRequest, setSelectedRequest] = useState<ResetRequest | null>(null)
   const [newPassword, setNewPassword] = useState('')
 
@@ -939,20 +1268,19 @@ function AdminOverview() {
   })
 
   const [addOpen, setAddOpen] = useState(false)
-  const [addForm, setAddForm] = useState({ username: '', password: '', employeeId: '', position: '', department: '' })
+  const [addForm, setAddForm] = useState({ username: '', password: '', employeeId: '', position: '' })
   const { data: employeesData } = useQuery<EmployeesData>({
     queryKey: ['employees-positions'],
     queryFn: () => apiGet<EmployeesData>('/api/admin/employees'),
   })
   const positions = employeesData?.positions || []
-  const departments = employeesData?.departments || []
 
   const addMutation = useMutation({
     mutationFn: (body: typeof addForm) => apiPost('/api/admin/employees', body),
     onSuccess: () => {
       toast.success('Employee added successfully!')
       setAddOpen(false)
-      setAddForm({ username: '', password: '', employeeId: '', position: '', department: '' })
+      setAddForm({ username: '', password: '', employeeId: '', position: '' })
       qc.invalidateQueries({ queryKey: ['admin-stats'] })
       qc.invalidateQueries({ queryKey: ['admin-employees'] })
       qc.invalidateQueries({ queryKey: ['employees-positions'] })
@@ -971,10 +1299,17 @@ function AdminOverview() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Operational Overview</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Live metrics for the Uganda Film Movie Industry</p>
+          <p className="text-sm text-gray-500 mt-0.5">Live metrics for the Uganda Federation of Movie Industry</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-9 rounded-lg text-xs gap-1.5 border-gray-200">
+          <Button
+            variant="outline"
+            className="h-9 rounded-lg text-xs gap-1.5 border-gray-200"
+            onClick={() => {
+              const event = new CustomEvent('admin-navigate', { detail: 'export' })
+              window.dispatchEvent(event)
+            }}
+          >
             <Download className="h-3.5 w-3.5" />
             Export Data
           </Button>
@@ -1027,29 +1362,24 @@ function AdminOverview() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">Position</Label>
-                <Input
-                  value={addForm.position}
-                  onChange={(e) => setAddForm({ ...addForm, position: e.target.value })}
-                  placeholder="e.g. Camera Operator"
-                  className="h-10 rounded-lg border-gray-200"
-                />
+                <Select value={addForm.position} onValueChange={(v) => setAddForm({ ...addForm, position: v })}>
+                  <SelectTrigger className="h-10 rounded-lg border-gray-200">
+                    <SelectValue placeholder="Select position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {positions.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-gray-700">Department</Label>
-              <Input
-                value={addForm.department}
-                onChange={(e) => setAddForm({ ...addForm, department: e.target.value })}
-                placeholder="e.g. Production"
-                className="h-10 rounded-lg border-gray-200"
-              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)} className="rounded-lg border-gray-200">Cancel</Button>
             <Button
               onClick={() => addMutation.mutate(addForm)}
-              disabled={addMutation.isPending || !addForm.username || !addForm.password || !addForm.employeeId || !addForm.position || !addForm.department}
+              disabled={addMutation.isPending || !addForm.username || !addForm.password || !addForm.employeeId || !addForm.position}
               className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg"
             >
               {addMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -1167,37 +1497,19 @@ function AdminOverview() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Department Breakdown */}
+        {/* Position Breakdown */}
         <div className="ufmi-card p-6">
           <div className="mb-5">
-            <h2 className="text-base font-semibold text-gray-900">Department Breakdown</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Active employees by department</p>
+            <h2 className="text-base font-semibold text-gray-900">Position Breakdown</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Active employees by position</p>
           </div>
-          {stats.departmentStats.length === 0 ? (
-            <p className="text-gray-400 text-sm py-4">No departments yet</p>
-          ) : (
-            <div className="space-y-4">
-              {stats.departmentStats.map((dept) => {
-                const maxDeptCount = Math.max(...stats.departmentStats.map((d) => d.count), 1)
-                return (
-                  <div key={dept.department} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700 font-medium">{dept.department}</span>
-                      <span className="text-gray-500 text-xs">{dept.count}</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(dept.count / maxDeptCount) * 100}%` }}
-                        transition={{ duration: 0.6, ease: 'easeOut' }}
-                        className="h-full bg-[#0B1F6D] rounded-full"
-                      />
-                    </div>
-                  </div>
-                )
-              })}
+          <ScrollArea className="max-h-[280px]">
+            <div className="space-y-1">
+              {stats.missingTodayReports.length === 0 && (
+                <p className="text-gray-400 text-sm py-4">All employees have submitted reports today.</p>
+              )}
             </div>
-          )}
+          </ScrollArea>
         </div>
 
         {/* Missing Today's Reports */}
@@ -1231,7 +1543,7 @@ function AdminOverview() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-700 truncate">{emp.username}</p>
-                      <p className="text-xs text-gray-400">{emp.profile?.position || 'Unassigned'} &middot; {emp.profile?.department || 'Unassigned'}</p>
+                      <p className="text-xs text-gray-400">{emp.profile?.position || 'Unassigned'}</p>
                     </div>
                     <Clock className="h-4 w-4 text-amber-400 shrink-0" />
                   </div>
@@ -1258,7 +1570,6 @@ function AdminOverview() {
                   <TableHead>Date</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead className="hidden md:table-cell">Position</TableHead>
-                  <TableHead className="hidden lg:table-cell">Department</TableHead>
                   <TableHead>Activity</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1268,7 +1579,6 @@ function AdminOverview() {
                     <TableCell className="text-sm text-gray-600">{format(parseISO(r.date), 'MMM d')}</TableCell>
                     <TableCell className="text-sm font-medium text-gray-900">{r.user?.username}</TableCell>
                     <TableCell className="text-sm text-gray-500 hidden md:table-cell">{r.user?.profile?.position || '-'}</TableCell>
-                    <TableCell className="text-sm text-gray-500 hidden lg:table-cell">{r.user?.profile?.department || '-'}</TableCell>
                     <TableCell className="text-sm text-gray-600 max-w-[280px] truncate">{r.activityText}</TableCell>
                   </TableRow>
                 ))}
@@ -1292,9 +1602,46 @@ function AdminOverview() {
 
 function EmployeeSubmitReport() {
   const today = new Date()
-  const [selectedDate, setSelectedDate] = useState<Date>(today)
-  const [activityText, setActivityText] = useState('')
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (typeof window === 'undefined') return today
+    try {
+      const draft = localStorage.getItem('report-draft')
+      if (draft) {
+        const parsed = JSON.parse(draft)
+        if (parsed.date) return new Date(parsed.date + 'T00:00:00')
+      }
+    } catch {}
+    return today
+  })
+  const [activityText, setActivityText] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    try {
+      const draft = localStorage.getItem('report-draft')
+      if (draft) {
+        const parsed = JSON.parse(draft)
+        if (parsed.activityText) return parsed.activityText
+      }
+    } catch {}
+    return ''
+  })
+  const [location, setLocation] = useState('')
+  const [timeIn, setTimeIn] = useState('')
+  const [timeOut, setTimeOut] = useState('')
+  const [comments, setComments] = useState('')
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
+
+  const handleSaveDraft = () => {
+    if (!activityText.trim()) {
+      toast.error('Nothing to save — write some activities first')
+      return
+    }
+    localStorage.setItem('report-draft', JSON.stringify({
+      activityText: activityText.trim(),
+      date: format(selectedDate, 'yyyy-MM-dd'),
+      savedAt: new Date().toISOString(),
+    }))
+    toast.success('Draft saved! It will be restored when you return.')
+  }
 
   const monthStr = format(selectedDate, 'yyyy-MM')
 
@@ -1307,10 +1654,15 @@ function EmployeeSubmitReport() {
   const hasTodayReport = reports.find((r) => r.date === format(today, 'yyyy-MM-dd'))
 
   const submitMutation = useMutation({
-    mutationFn: (body: { date: string; activityText: string }) => apiPost('/api/reports', body),
+    mutationFn: (body: { date: string; activityText: string; location?: string; timeIn?: string; timeOut?: string; comments?: string }) => apiPost('/api/reports', body),
     onSuccess: () => {
       toast.success('Report submitted successfully!')
       setActivityText('')
+      localStorage.removeItem('report-draft')
+      setLocation('')
+      setTimeIn('')
+      setTimeOut('')
+      setComments('')
       queryClient.invalidateQueries({ queryKey: ['my-reports', monthStr] })
     },
     onError: (err) => {
@@ -1331,6 +1683,10 @@ function EmployeeSubmitReport() {
     submitMutation.mutate({
       date: format(selectedDate, 'yyyy-MM-dd'),
       activityText: activityText.trim(),
+      location: location.trim() || undefined,
+      timeIn: timeIn.trim() || undefined,
+      timeOut: timeOut.trim() || undefined,
+      comments: comments.trim() || undefined,
     })
   }
 
@@ -1360,7 +1716,7 @@ function EmployeeSubmitReport() {
               <p className="text-xs text-[#D94B2B]/60 mt-0.5">Please submit your daily activity report before the deadline.</p>
             </div>
           </div>
-          <Button size="sm" className="bg-[#D94B2B] hover:bg-[#c4411f] text-white rounded-lg shrink-0">
+          <Button size="sm" className="bg-[#D94B2B] hover:bg-[#c4411f] text-white rounded-lg shrink-0" onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}>
             Submit Now
           </Button>
         </motion.div>
@@ -1375,7 +1731,7 @@ function EmployeeSubmitReport() {
               Welcome back, {user?.username}
             </h2>
             <p className="text-sm text-blue-200/60 mt-0.5">
-              {user?.profile?.position} &middot; {user?.profile?.department}
+              {user?.profile?.position}
             </p>
           </div>
           <Button
@@ -1439,12 +1795,74 @@ function EmployeeSubmitReport() {
               placeholder="Describe your activities, accomplishments, and any blockers..."
               value={activityText}
               onChange={(e) => setActivityText(e.target.value)}
-              rows={8}
+              rows={6}
               className="resize-none rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
               disabled={!!existingReport}
               maxLength={2000}
             />
             <p className="text-xs text-gray-400 text-right">{activityText.length}/2000 characters</p>
+          </div>
+
+          {/* Time In / Time Out row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="timeIn" className="text-sm font-medium text-gray-700">
+                Time In <span className="text-gray-400 font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="timeIn"
+                type="time"
+                value={timeIn}
+                onChange={(e) => setTimeIn(e.target.value)}
+                className="h-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
+                disabled={!!existingReport}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="timeOut" className="text-sm font-medium text-gray-700">
+                Time Out <span className="text-gray-400 font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="timeOut"
+                type="time"
+                value={timeOut}
+                onChange={(e) => setTimeOut(e.target.value)}
+                className="h-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
+                disabled={!!existingReport}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="location" className="text-sm font-medium text-gray-700">
+              Location <span className="text-gray-400 font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="location"
+              placeholder="e.g. Office, Field - Kampala, Client Site..."
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="h-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
+              disabled={!!existingReport}
+              maxLength={200}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="comments" className="text-sm font-medium text-gray-700">
+              Comments / Notes <span className="text-gray-400 font-normal">(optional)</span>
+            </Label>
+            <Textarea
+              id="comments"
+              placeholder="Any additional remarks, challenges faced, or notes for your supervisor..."
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+              rows={3}
+              className="resize-none rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
+              disabled={!!existingReport}
+              maxLength={1000}
+            />
+            <p className="text-xs text-gray-400 text-right">{comments.length}/1000 characters</p>
           </div>
 
           <div className="flex items-center gap-3 pt-2">
@@ -1465,7 +1883,7 @@ function EmployeeSubmitReport() {
                 </>
               )}
             </Button>
-            <Button type="button" variant="outline" className="rounded-lg border-gray-200">
+            <Button type="button" variant="outline" className="rounded-lg border-gray-200" onClick={handleSaveDraft} disabled={!activityText.trim()}>
               Save Draft
             </Button>
           </div>
@@ -1508,6 +1926,10 @@ function EmployeeMyReports() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [editingReport, setEditingReport] = useState<DailyReport | null>(null)
   const [editText, setEditText] = useState('')
+  const [editLocation, setEditLocation] = useState('')
+  const [editTimeIn, setEditTimeIn] = useState('')
+  const [editTimeOut, setEditTimeOut] = useState('')
+  const [editComments, setEditComments] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<DailyReport | null>(null)
   const qc = useQueryClient()
 
@@ -1519,8 +1941,8 @@ function EmployeeMyReports() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, activityText }: { id: string; activityText: string }) =>
-      apiPut(`/api/reports/${id}`, { activityText }),
+    mutationFn: ({ id, activityText, location, timeIn, timeOut, comments }: { id: string; activityText: string; location?: string; timeIn?: string; timeOut?: string; comments?: string }) =>
+      apiPut(`/api/reports/${id}`, { activityText, location, timeIn, timeOut, comments }),
     onSuccess: () => {
       toast.success('Report updated!')
       setEditingReport(null)
@@ -1549,6 +1971,10 @@ function EmployeeMyReports() {
   const openEdit = (report: DailyReport) => {
     setEditingReport(report)
     setEditText(report.activityText)
+    setEditLocation(report.location || '')
+    setEditTimeIn(report.timeIn || '')
+    setEditTimeOut(report.timeOut || '')
+    setEditComments(report.comments || '')
   }
 
   return (
@@ -1601,8 +2027,16 @@ function EmployeeMyReports() {
                   <TableCell className="text-sm text-gray-600 whitespace-nowrap">
                     {format(parseISO(report.date), 'MMM d, yyyy')}
                   </TableCell>
-                  <TableCell className="text-sm text-gray-700 max-w-[400px] truncate">
-                    {report.activityText.substring(0, 60)}...
+                  <TableCell className="text-sm text-gray-700 max-w-[400px]">
+                    <p className="truncate font-medium">{report.activityText.substring(0, 60)}{report.activityText.length > 60 ? '...' : ''}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      {(report.timeIn || report.timeOut) && (
+                        <p className="text-xs text-gray-400">🕐 {report.timeIn || '--'} – {report.timeOut || '--'}</p>
+                      )}
+                      {report.location && (
+                        <p className="text-xs text-gray-400 truncate">📍 {report.location}</p>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <Badge className="bg-green-50 text-green-700 border-green-200 rounded-full px-2.5 text-xs font-medium">
@@ -1632,26 +2066,76 @@ function EmployeeMyReports() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingReport} onOpenChange={() => setEditingReport(null)}>
-        <DialogContent className="rounded-2xl">
+        <DialogContent className="rounded-2xl sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Report</DialogTitle>
             <DialogDescription>
               Editing report for {editingReport ? format(parseISO(editingReport.date), 'EEEE, MMMM d, yyyy') : ''}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label>Activity</Label>
-            <Textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              rows={6}
-              className="resize-none rounded-lg border-gray-200"
-            />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Activity</Label>
+              <Textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                rows={5}
+                className="resize-none rounded-lg border-gray-200"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Time In</Label>
+                <Input
+                  type="time"
+                  value={editTimeIn}
+                  onChange={(e) => setEditTimeIn(e.target.value)}
+                  className="h-10 rounded-lg border-gray-200"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Time Out</Label>
+                <Input
+                  type="time"
+                  value={editTimeOut}
+                  onChange={(e) => setEditTimeOut(e.target.value)}
+                  className="h-10 rounded-lg border-gray-200"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Input
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+                placeholder="e.g. Office, Field - Kampala..."
+                className="h-10 rounded-lg border-gray-200"
+                maxLength={200}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Comments / Notes</Label>
+              <Textarea
+                value={editComments}
+                onChange={(e) => setEditComments(e.target.value)}
+                rows={3}
+                placeholder="Additional remarks..."
+                className="resize-none rounded-lg border-gray-200"
+                maxLength={1000}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingReport(null)} className="rounded-lg border-gray-200">Cancel</Button>
             <Button
-              onClick={() => editingReport && updateMutation.mutate({ id: editingReport.id, activityText: editText })}
+              onClick={() => editingReport && updateMutation.mutate({
+                id: editingReport.id,
+                activityText: editText,
+                location: editLocation.trim() || undefined,
+                timeIn: editTimeIn.trim() || undefined,
+                timeOut: editTimeOut.trim() || undefined,
+                comments: editComments.trim() || undefined,
+              })}
               disabled={updateMutation.isPending || !editText.trim()}
               className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg"
             >
@@ -1692,24 +2176,30 @@ function EmployeeMyReports() {
 // ADMIN: EMPLOYEES
 // =====================================================================
 
-function AdminEmployees() {
+function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
   const qc = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [departmentFilter, setDepartmentFilter] = useState('all')
+  const [search, setSearch] = useState(initialSearch || '')
   const [statusFilter, setStatusFilter] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Employee | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
+  const [exporting, setExporting] = useState(false)
 
-  const [addForm, setAddForm] = useState({ username: '', password: '', employeeId: '', position: '', department: '' })
-  const [editForm, setEditForm] = useState({ status: '', position: '', department: '', password: '' })
+  const [addForm, setAddForm] = useState({ username: '', password: '', employeeId: '', position: '' })
+  const [editForm, setEditForm] = useState({ status: '', position: '', password: '' })
+
+  // Sync search with initialSearch prop changes
+  useEffect(() => {
+    if (initialSearch !== undefined) {
+      setSearch(initialSearch)
+    }
+  }, [initialSearch])
 
   const { data, isLoading } = useQuery<EmployeesData>({
-    queryKey: ['admin-employees', search, departmentFilter, statusFilter],
+    queryKey: ['admin-employees', search, statusFilter],
     queryFn: () => {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
-      if (departmentFilter !== 'all') params.set('department', departmentFilter)
       if (statusFilter !== 'all') params.set('status', statusFilter)
       return apiGet<EmployeesData>(`/api/admin/employees?${params.toString()}`)
     },
@@ -1720,7 +2210,7 @@ function AdminEmployees() {
     onSuccess: () => {
       toast.success('Employee added successfully!')
       setAddOpen(false)
-      setAddForm({ username: '', password: '', employeeId: '', position: '', department: '' })
+      setAddForm({ username: '', password: '', employeeId: '', position: '' })
       qc.invalidateQueries({ queryKey: ['admin-employees'] })
       qc.invalidateQueries({ queryKey: ['admin-stats'] })
     },
@@ -1753,14 +2243,12 @@ function AdminEmployees() {
     setEditForm({
       status: emp.status,
       position: emp.profile?.position || '',
-      department: emp.profile?.department || '',
-      password: '',
+      password: ''
     })
   }
 
   const employees = data?.employees || []
   const positions = data?.positions || []
-  const departments = data?.departments || []
 
   const activeCount = employees.filter(e => e.status === 'active').length
   const suspendedCount = employees.filter(e => e.status === 'suspended').length
@@ -1775,8 +2263,37 @@ function AdminEmployees() {
           <p className="text-sm text-gray-500 mt-0.5">Manage employee accounts and access</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-9 rounded-lg text-xs gap-1.5 border-gray-200">
-            <Download className="h-3.5 w-3.5" />
+          <Button
+            variant="outline"
+            className="h-9 rounded-lg text-xs gap-1.5 border-gray-200"
+            disabled={exporting}
+            onClick={async () => {
+              setExporting(true)
+              try {
+                const data = await apiGet<EmployeesData>('/api/admin/employees')
+                const emps = data.employees || []
+                const csvRows = ['Employee ID,Username,Position,Status,Reports']
+                for (const e of emps) {
+                  csvRows.push(`"${e.profile?.employeeId || ''}","${e.username}","${e.profile?.position || ''}","${e.status}","${e._count?.reports || 0}"`)
+                }
+                const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'employees-export.csv'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+                toast.success('Employee list exported!')
+              } catch (err) {
+                toast.error(err instanceof ApiError ? err.message : 'Failed to export employees')
+              } finally {
+                setExporting(false)
+              }
+            }}
+          >
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             Export CSV
           </Button>
           <Button
@@ -1821,17 +2338,6 @@ function AdminEmployees() {
               className="pl-9 h-9 rounded-lg border-gray-200 text-sm"
             />
           </div>
-          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="w-full sm:w-[170px] h-9 rounded-lg text-sm border-gray-200">
-              <SelectValue placeholder="Department" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
-              {departments.map((d) => (
-                <SelectItem key={d} value={d}>{d}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[140px] h-9 rounded-lg text-sm border-gray-200">
               <SelectValue placeholder="Status" />
@@ -1868,7 +2374,6 @@ function AdminEmployees() {
                   <TableHead>Employee ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden md:table-cell">Position</TableHead>
-                  <TableHead className="hidden lg:table-cell">Department</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center">Reports</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -1890,9 +2395,6 @@ function AdminEmployees() {
                     </TableCell>
                     <TableCell className="text-sm text-gray-500 hidden md:table-cell">
                       {emp.profile?.position || '-'}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-500 hidden lg:table-cell">
-                      {emp.profile?.department || '-'}
                     </TableCell>
                     <TableCell><StatusBadge status={emp.status} /></TableCell>
                     <TableCell className="text-sm text-gray-600 text-center">{emp._count?.reports || 0}</TableCell>
@@ -1963,25 +2465,12 @@ function AdminEmployees() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm">Department</Label>
-              <Select value={addForm.department} onValueChange={(v) => setAddForm({ ...addForm, department: v })}>
-                <SelectTrigger className="w-full rounded-lg border-gray-200">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)} className="rounded-lg border-gray-200">Cancel</Button>
             <Button
               onClick={() => addMutation.mutate(addForm)}
-              disabled={addMutation.isPending || !addForm.username || !addForm.password || !addForm.employeeId || !addForm.position || !addForm.department}
+              disabled={addMutation.isPending || !addForm.username || !addForm.password || !addForm.employeeId || !addForm.position}
               className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg"
             >
               {addMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -2021,19 +2510,6 @@ function AdminEmployees() {
                 <SelectContent>
                   {positions.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm">Department</Label>
-              <Select value={editForm.department} onValueChange={(v) => setEditForm({ ...editForm, department: v })}>
-                <SelectTrigger className="w-full rounded-lg border-gray-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2096,7 +2572,6 @@ function AdminReports() {
   const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'))
   const [date, setDate] = useState('')
   const [userId, setUserId] = useState('all')
-  const [department, setDepartment] = useState('all')
   const [page, setPage] = useState(1)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -2112,13 +2587,12 @@ function AdminReports() {
     if (month) p.set('month', month)
     if (date) p.set('date', date)
     if (userId !== 'all') p.set('userId', userId)
-    if (department !== 'all') p.set('department', department)
     return p.toString()
-  }, [month, date, userId, department, page])
+  }, [month, date, userId, page])
 
-  const { data, isLoading } = useQuery<PaginatedReports>({
+  const { data, isLoading } = useQuery<DailyPaginatedReports>({
     queryKey: ['admin-reports', params],
-    queryFn: () => apiGet<PaginatedReports>(`/api/admin/reports?${params}`),
+    queryFn: () => apiGet<DailyPaginatedReports>(`/api/admin/reports?${params}`),
   })
 
   const reports = data?.reports || []
@@ -2136,7 +2610,6 @@ function AdminReports() {
     setPage(1)
   }
 
-  const departments = empData?.departments || []
   const employees = empData?.employees || []
 
   return (
@@ -2201,18 +2674,6 @@ function AdminReports() {
               ))}
             </SelectContent>
           </Select>
-
-          <Select value={department} onValueChange={(v) => { setDepartment(v); setPage(1) }}>
-            <SelectTrigger className="w-full sm:w-[170px] h-9 rounded-lg text-sm border-gray-200">
-              <SelectValue placeholder="All departments" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
-              {departments.map((d) => (
-                <SelectItem key={d} value={d}>{d}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
@@ -2238,7 +2699,6 @@ function AdminReports() {
                   <TableHead>Date</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead className="hidden md:table-cell">Position</TableHead>
-                  <TableHead className="hidden lg:table-cell">Department</TableHead>
                   <TableHead>Activity</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
@@ -2253,12 +2713,22 @@ function AdminReports() {
                     <TableCell className="text-sm text-gray-500 hidden md:table-cell">
                       {r.user?.profile?.position || '-'}
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500 hidden lg:table-cell">
-                      {r.user?.profile?.department || '-'}
-                    </TableCell>
                     <TableCell className="text-sm text-gray-600 max-w-[300px]">
                       {expandedId === r.id ? (
-                        <p className="whitespace-pre-wrap leading-relaxed">{r.activityText}</p>
+                        <div className="space-y-1.5">
+                          <p className="whitespace-pre-wrap leading-relaxed">{r.activityText}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {(r.timeIn || r.timeOut) && (
+                              <p className="text-xs text-gray-400 flex items-center gap-1">🕐 {r.timeIn || '--'} – {r.timeOut || '--'}</p>
+                            )}
+                            {r.location && (
+                              <p className="text-xs text-gray-400 flex items-center gap-1">📍 {r.location}</p>
+                            )}
+                          </div>
+                          {r.comments && (
+                            <p className="text-xs text-gray-500 italic mt-1">💬 {r.comments}</p>
+                          )}
+                        </div>
                       ) : (
                         <p className="truncate">{r.activityText}</p>
                       )}
@@ -2370,7 +2840,7 @@ function AdminExport() {
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">
               This will download an Excel file containing all daily reports for <strong>{format(monthDate, 'MMMM yyyy')}</strong>.
-              The file includes a summary sheet and a detailed reports sheet.
+              The file includes a <strong>Daily Reports</strong> sheet with full details (Activity, Location, Time In/Out, Comments) and an <strong>Employee Summary</strong> sheet.
             </p>
           </div>
 
@@ -2398,6 +2868,1012 @@ function AdminExport() {
 }
 
 // =====================================================================
+// EMPLOYEE: MONTHLY REPORTS
+// =====================================================================
+
+function EmployeeMonthlyReports() {
+  const qc = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const [genMonth, setGenMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [viewingReport, setViewingReport] = useState<any>(null)
+  const [viewOpen, setViewOpen] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [regenerateConfirm, setRegenerateConfirm] = useState<string | null>(null)
+
+  const genMonthDate = parseISO(genMonth + '-01')
+
+  // Fetch list of generated reports
+  const { data: reports = [], isLoading } = useQuery<MonthlyReportListItem[]>({
+    queryKey: ['monthly-reports'],
+    queryFn: () => apiGet<MonthlyReportListItem[]>('/api/reports/monthly'),
+  })
+
+  const generateMutation = useMutation({
+    mutationFn: () => apiPost('/api/reports/monthly', { month: genMonth }),
+    onSuccess: (data) => {
+      toast.success('Monthly report generated successfully!')
+      qc.invalidateQueries({ queryKey: ['monthly-reports'] })
+      setViewingReport(data)
+      setViewOpen(true)
+      setGenerating(false)
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409) {
+        setRegenerateConfirm(genMonth)
+        setGenerating(false)
+      } else {
+        toast.error(err instanceof ApiError ? err.message : 'Failed to generate report')
+        setGenerating(false)
+      }
+    },
+  })
+
+  const regenerateMutation = useMutation({
+    mutationFn: (month: string) => apiPost('/api/reports/monthly', { month, force: true }),
+    onSuccess: (data) => {
+      toast.success('Report regenerated successfully!')
+      qc.invalidateQueries({ queryKey: ['monthly-reports'] })
+      setViewingReport(data)
+      setViewOpen(true)
+      setRegenerateConfirm(null)
+      setGenerating(false)
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to regenerate report')
+      setRegenerateConfirm(null)
+      setGenerating(false)
+    },
+  })
+
+  const handleGenerate = () => {
+    setGenerating(true)
+    generateMutation.mutate()
+  }
+
+  const handleViewReport = async (reportId: string) => {
+    try {
+      const data = await apiGet(`/api/reports/monthly/${reportId}`)
+      setViewingReport(data)
+      setViewOpen(true)
+    } catch {
+      toast.error('Failed to load report')
+    }
+  }
+
+  const handleExport = async (reportId: string) => {
+    try {
+      const token = useAuthStore.getState().token
+      const response = await fetch(`/api/reports/monthly/export/${reportId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) {
+        toast.error('Export failed')
+        return
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const contentDisposition = response.headers.get('content-disposition')
+      const filenameMatch = contentDisposition?.match(/filename="([^"]+)"/)
+      a.download = filenameMatch?.[1] || 'monthly-report.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Report exported successfully!')
+    } catch {
+      toast.error('Export failed')
+    }
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
+      <Breadcrumb items={['Operations', 'Monthly Reports']} />
+      <div>
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Monthly Reports</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Generate and export professional monthly activity reports</p>
+      </div>
+
+      {/* Generate New Report */}
+      <div className="ufmi-card p-6 max-w-2xl">
+        <div className="flex items-center gap-2 mb-5">
+          <BarChart3 className="h-5 w-5 text-[#0B1F6D]" />
+          <h2 className="text-base font-semibold text-gray-900">Generate New Report</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-700">Select Month</Label>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="icon" onClick={() => setGenMonth(format(subMonths(genMonthDate, 1), 'yyyy-MM'))} className="rounded-lg border-gray-200 h-9 w-9">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-semibold min-w-[160px] text-center">{format(genMonthDate, 'MMMM yyyy')}</span>
+              <Button variant="outline" size="icon" onClick={() => setGenMonth(format(addMonths(genMonthDate, 1), 'yyyy-MM'))} className="rounded-lg border-gray-200 h-9 w-9">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-xl bg-[#0B1F6D]/5 border border-[#0B1F6D]/10 p-4">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              This will analyze all your daily reports for <strong>{format(genMonthDate, 'MMMM yyyy')}</strong>,
+              categorize activities, calculate statistics, and produce a professional monthly report.
+              The report will be saved and can be exported to Excel.
+            </p>
+          </div>
+          <Button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Report...
+              </>
+            ) : (
+              <>
+                <BarChart3 className="mr-2 h-4 w-4" />
+                Generate Monthly Report
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Existing Reports */}
+      <div className="ufmi-card p-6">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Generated Reports</h2>
+        {isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-16 w-full rounded-lg" />
+            <Skeleton className="h-16 w-full rounded-lg" />
+          </div>
+        ) : reports.length === 0 ? (
+          <div className="flex flex-col items-center py-12">
+            <BarChart3 className="h-12 w-12 text-gray-300 mb-3" />
+            <p className="text-gray-500 font-medium">No monthly reports yet</p>
+            <p className="text-gray-400 text-sm mt-1">Generate your first monthly report above</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {reports.map((report: any) => {
+              const reportMonthDate = parseISO(report.month + '-01')
+              return (
+                <div key={report.id} className="flex items-center justify-between gap-4 p-4 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-[#0B1F6D]/10 flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-[#0B1F6D]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{format(reportMonthDate, 'MMMM yyyy')}</p>
+                      <p className="text-xs text-gray-400">{report.totalReports} reports &middot; {report.totalActivities} activities &middot; {report.submissionRate}% rate</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="rounded-lg text-xs gap-1.5 border-gray-200" onClick={() => handleViewReport(report.id)}>
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </Button>
+                    <Button variant="outline" size="sm" className="rounded-lg text-xs gap-1.5 border-gray-200" onClick={() => handleExport(report.id)}>
+                      <Download className="h-3.5 w-3.5" />
+                      Export
+                    </Button>
+                    <Button variant="ghost" size="sm" className="rounded-lg text-xs gap-1.5 text-gray-500 hover:text-[#0B1F6D]" onClick={() => setRegenerateConfirm(report.month)} title="Regenerate this report">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Regeneration Confirmation Dialog */}
+      <AlertDialog open={!!regenerateConfirm} onOpenChange={(open) => !open && setRegenerateConfirm(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerate Monthly Report</AlertDialogTitle>
+            <AlertDialogDescription>
+              A report for {regenerateConfirm ? format(parseISO(regenerateConfirm + '-01'), 'MMMM yyyy') : 'this month'} already exists. Do you want to regenerate it? This will replace the current report with a new version based on your latest daily reports.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (regenerateConfirm) regenerateMutation.mutate(regenerateConfirm) }} className="bg-[#0B1F6D] hover:bg-[#1e3a8a]">
+              {regenerateMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Regenerating...</> : 'Regenerate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ReportViewerDialog report={viewingReport} open={viewOpen} onOpenChange={setViewOpen} onExport={(id) => id && handleExport(id)} />
+    </motion.div>
+  )
+}
+
+// =====================================================================
+// SHARED: REPORT VIEWER DIALOG
+// =====================================================================
+
+function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
+  report: any
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onExport: (id: string) => void
+}) {
+  if (!report) return null
+
+  const stats = report.statistics || {}
+
+  // Safe helpers to prevent undefined crashes
+  const safeStat = (val: unknown, fallback = '—') => (val !== undefined && val !== null ? String(val) : fallback)
+  const safeNum = (val: unknown, fallback = 0) => (typeof val === 'number' ? val : fallback)
+  const safeArr = (val: unknown): unknown[] => (Array.isArray(val) ? val : [])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-[#0B1F6D]" />
+            Monthly Report — {report.employeeInfo?.reportingMonthLabel || 'N/A'}
+          </DialogTitle>
+          <DialogDescription>
+            {report.employeeInfo?.name || 'Unknown'} ({report.employeeInfo?.employeeId || 'N/A'})
+            {report.createdAt ? ` · Generated ${format(parseISO(String(report.createdAt)), 'MMM d, yyyy')}` : ''}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Regeneration info banner */}
+        {report.isRegeneration && (
+          <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-700">
+            <RefreshCw className="h-4 w-4 shrink-0" />
+            <span>This is a regenerated report. The original was created on {report.originalCreatedAt ? format(parseISO(String(report.originalCreatedAt)), 'MMM d, yyyy') : 'an earlier date'}.</span>
+          </div>
+        )}
+
+        <div className="space-y-6 pb-4">
+          {/* Employee Info Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Employee', value: report.employeeInfo?.name },
+              { label: 'ID', value: report.employeeInfo?.employeeId },
+              { label: 'Position', value: report.employeeInfo?.position },
+              { label: 'Period', value: report.employeeInfo?.reportingMonthLabel },
+            ].map((item) => (
+              <div key={item.label} className="p-3 rounded-lg bg-gray-50">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">{item.label}</p>
+                <p className="text-sm font-medium text-gray-900 mt-0.5 truncate">{item.value || '—'}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Submission Statistics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg bg-[#0B1F6D]/5 border border-[#0B1F6D]/10">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Submission Rate</p>
+              <p className="text-xl font-bold text-[#0B1F6D]">{safeNum(stats.submissionRate)}%</p>
+              <p className="text-[10px] text-gray-400">{safeNum(stats.totalReportsSubmitted)}/{safeNum(stats.expectedReports)} days</p>
+            </div>
+            <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Activities</p>
+              <p className="text-xl font-bold text-green-700">{safeNum(stats.totalActivities)}</p>
+              <p className="text-[10px] text-gray-400">{safeNum(stats.avgActivitiesPerDay)}/day avg</p>
+            </div>
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Streak</p>
+              <p className="text-xl font-bold text-amber-700">{safeNum(stats.longestStreak)}</p>
+              <p className="text-[10px] text-gray-400">longest consecutive</p>
+            </div>
+            <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Categories</p>
+              <p className="text-xl font-bold text-purple-700">{safeNum(stats.categoriesWorked)}</p>
+              <p className="text-[10px] text-gray-400">work areas covered</p>
+            </div>
+          </div>
+
+          {/* Extra Stats Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div className="p-2 rounded-lg border border-gray-100">
+              <p className="text-xs text-gray-400">Most Active Day</p>
+              <p className="text-sm font-semibold text-gray-700">{safeStat(stats.mostActiveDay)}</p>
+            </div>
+            <div className="p-2 rounded-lg border border-gray-100">
+              <p className="text-xs text-gray-400">Most Active Week</p>
+              <p className="text-sm font-semibold text-gray-700">{safeStat(stats.mostActiveWeek)}</p>
+            </div>
+            <div className="p-2 rounded-lg border border-gray-100">
+              <p className="text-xs text-gray-400">Missed Days</p>
+              <p className="text-sm font-semibold text-gray-700">{safeNum(stats.missedSubmissions)}</p>
+            </div>
+            <div className="p-2 rounded-lg border border-gray-100">
+              <p className="text-xs text-gray-400">Words Written</p>
+              <p className="text-sm font-semibold text-gray-700">{safeNum(stats.totalWords)}</p>
+            </div>
+          </div>
+
+          {/* Executive Summary */}
+          {report.summary && (
+          <div className="p-4 rounded-xl bg-[#0B1F6D]/5 border border-[#0B1F6D]/10">
+            <h3 className="text-sm font-semibold text-[#0B1F6D] mb-2 flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Executive Summary
+            </h3>
+            <p className="text-sm text-gray-600 leading-relaxed">{report.summary}</p>
+            {report.dominantFocus && (
+              <p className="text-xs text-[#0B1F6D] mt-2 font-medium">Dominant Focus: {report.dominantFocus}</p>
+            )}
+          </div>
+          )}
+
+          {/* Key Work Areas */}
+          {safeArr(report.keyWorkAreas).length > 0 && (
+            <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Key Work Areas</h3>
+              <ol className="space-y-1.5">
+                {safeArr(report.keyWorkAreas).map((area: unknown, i: number) => (
+                  <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                    <span className="text-[#0B1F6D] font-bold">{i + 1}.</span>
+                    {String(area)}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Category Breakdown */}
+          {safeArr(report.categoryBreakdown).length > 0 && (
+            <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100">
+              <h3 className="text-sm font-semibold text-blue-800 mb-3">Activity Breakdown</h3>
+              <div className="space-y-2.5">
+                {safeArr(report.categoryBreakdown).map((cat: unknown, i: number) => {
+                  const c = cat as Record<string, unknown>
+                  return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-gray-700">{c.category || 'Unknown'}</span>
+                      <span className="text-xs text-gray-400">{c.count} activities ({c.percentage}%)</span>
+                    </div>
+                    <div className="w-full bg-blue-100 rounded-full h-2">
+                      <div className="h-2 rounded-full bg-[#0B1F6D] transition-all" style={{ width: `${Math.min(Number(c.percentage) || 0, 100)}%` }} />
+                    </div>
+                  </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Achievements */}
+          {safeArr(report.achievements).length > 0 && (
+            <div className="p-4 rounded-xl bg-green-50/50 border border-green-100">
+              <h3 className="text-sm font-semibold text-green-800 mb-3 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Key Achievements ({safeArr(report.achievements).length})
+              </h3>
+              <ul className="space-y-1.5">
+                {safeArr(report.achievements).map((a: unknown, i: number) => (
+                  <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5 shrink-0">•</span>
+                    {String(a)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Activity Timeline */}
+          {safeArr(report.activityTimeline).length > 0 && (
+            <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Activity Timeline ({safeArr(report.activityTimeline).length} days)</h3>
+              <ScrollArea className="max-h-[200px]">
+                <div className="space-y-2 pr-4">
+                  {safeArr(report.activityTimeline).map((entry: unknown, i: number) => {
+                    const e = entry as Record<string, unknown>
+                    const activities = safeArr(e.activities)
+                    return (
+                    <div key={i} className="flex items-start gap-3 pb-2 border-b border-gray-100 last:border-0">
+                      <div className="w-20 shrink-0">
+                        <p className="text-xs font-medium text-gray-500">{e.dateLabel || ''}</p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {activities.slice(0, 2).map((act: unknown, j: number) => (
+                          <p key={j} className="text-xs text-gray-600 truncate">{String(act)}</p>
+                        ))}
+                        {activities.length > 2 && (
+                          <p className="text-[10px] text-gray-400">+{activities.length - 2} more</p>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="text-[10px] px-1.5 shrink-0">{e.primaryCategory || ''}</Badge>
+                    </div>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* Export */}
+          <div className="flex justify-end pt-2 border-t border-gray-100">
+            <Button onClick={() => report.id && onExport(report.id)} className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium gap-2">
+              <Download className="h-4 w-4" />
+              Export to Excel
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// =====================================================================
+// ADMIN: MONTHLY REPORTS
+// =====================================================================
+
+function AdminMonthlyReports() {
+  const qc = useQueryClient()
+  const [genMonth, setGenMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [viewingReport, setViewingReport] = useState<any>(null)
+  const [viewOpen, setViewOpen] = useState(false)
+  const [filterMonth, setFilterMonth] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(20)
+  const [sortBy, setSortBy] = useState('month')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [bulkGenerating, setBulkGenerating] = useState(false)
+  const [bulkResults, setBulkResults] = useState<BulkGenerateResult[] | null>(null)
+
+  const genMonthDate = parseISO(genMonth + '-01')
+
+  // Fetch all employees
+  const { data: empData } = useQuery<EmployeesData>({
+    queryKey: ['admin-employees-all'],
+    queryFn: () => apiGet<EmployeesData>('/api/admin/employees'),
+  })
+  const employees = empData?.employees || []
+
+  // Fetch generated reports with pagination
+  const { data, isLoading } = useQuery<MonthlyPaginatedReports>({
+    queryKey: ['admin-monthly-reports', filterMonth, page, pageSize, sortBy, sortOrder, searchQuery],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      params.set('page', String(page))
+      params.set('pageSize', String(pageSize))
+      params.set('sort', sortBy)
+      params.set('order', sortOrder)
+      if (filterMonth) params.set('month', filterMonth)
+      if (searchQuery) params.set('search', searchQuery)
+      return apiGet<MonthlyPaginatedReports>(`/api/admin/reports/monthly?${params.toString()}`)
+    },
+  })
+
+  const reports = data?.reports || []
+  const totalPages = data?.totalPages || 1
+  const total = data?.total || 0
+
+  // Reset page when filters change
+  const handleFilterChange = (key: string, value: string) => {
+    if (key === 'month') setFilterMonth(value)
+    setPage(1)
+  }
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSearchQuery(searchInput.trim())
+    setPage(1)
+  }
+
+  const handleGenerate = async () => {
+    if (!selectedUserId) {
+      toast.error('Please select an employee')
+      return
+    }
+    setGenerating(true)
+    try {
+      const data = await apiPost('/api/admin/reports/monthly', {
+        month: genMonth,
+        userId: selectedUserId,
+        force: true,
+      })
+      toast.success('Monthly report generated successfully!')
+      qc.invalidateQueries({ queryKey: ['admin-monthly-reports'] })
+      setViewingReport(data)
+      setViewOpen(true)
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to generate report')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const handleViewReport = async (reportId: string) => {
+    try {
+      const data = await apiGet(`/api/admin/reports/monthly/${reportId}`)
+      setViewingReport(data)
+      setViewOpen(true)
+    } catch {
+      toast.error('Failed to load report')
+    }
+  }
+
+  const handleDeleteReport = async (reportId: string) => {
+    try {
+      await apiDelete(`/api/admin/reports/monthly/${reportId}`)
+      toast.success('Report deleted')
+      qc.invalidateQueries({ queryKey: ['admin-monthly-reports'] })
+      setDeleteConfirmId(null)
+    } catch {
+      toast.error('Failed to delete report')
+    }
+  }
+
+  const handleExport = async (reportId: string) => {
+    try {
+      const token = useAuthStore.getState().token
+      const response = await fetch(`/api/admin/reports/monthly/export/${reportId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) {
+        if (response.status === 429) {
+          toast.error('Rate limit reached. Please try again later.')
+        } else {
+          toast.error('Export failed')
+        }
+        return
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const cd = response.headers.get('content-disposition')
+      const fm = cd?.match(/filename="([^"]+)"/)
+      a.download = fm?.[1] || 'monthly-report.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Report exported!')
+    } catch { toast.error('Export failed') }
+  }
+
+  const handleBulkGenerate = async (onlyMissing = false) => {
+    setBulkGenerating(true)
+    setBulkResults(null)
+    try {
+      const body: { month: string; onlyMissing: boolean } = { month: genMonth, onlyMissing }
+      const response = await apiPost<{ results: BulkGenerateResult[]; summary: { total: number; success: number; failed: number }; message?: string }>('/api/admin/reports/monthly/bulk', body)
+      const results = response.results || []
+      setBulkResults(results)
+      if (response.message) {
+        toast.info(response.message)
+      } else {
+        const success = results.filter(r => r.success).length
+        const failed = results.filter(r => !r.success).length
+        toast.success(`Bulk generation complete: ${success} succeeded, ${failed} failed`)
+      }
+      qc.invalidateQueries({ queryKey: ['admin-monthly-reports'] })
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        toast.error('Rate limit reached. Please try again later.')
+      } else {
+        toast.error(err instanceof ApiError ? err.message : 'Bulk generation failed')
+      }
+    } finally {
+      setBulkGenerating(false)
+    }
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
+      <Breadcrumb items={['Portal', 'Monthly Reports']} />
+      <div>
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Monthly Report Intelligence</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Generate professional monthly reports for employees</p>
+      </div>
+
+      {/* Generate Report Card */}
+      <div className="ufmi-card p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <BarChart3 className="h-5 w-5 text-[#0B1F6D]" />
+          <h2 className="text-base font-semibold text-gray-900">Generate Report</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-700">Select Employee</Label>
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger className="h-10 rounded-lg border-gray-200">
+                <SelectValue placeholder="Choose employee..." />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {emp.username} — {emp.profile?.position || emp.role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-700">Select Month</Label>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={() => setGenMonth(format(subMonths(genMonthDate, 1), 'yyyy-MM'))} className="rounded-lg border-gray-200 h-10 w-10">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-semibold min-w-[130px] text-center">{format(genMonthDate, 'MMM yyyy')}</span>
+              <Button variant="outline" size="icon" onClick={() => setGenMonth(format(addMonths(genMonthDate, 1), 'yyyy-MM'))} className="rounded-lg border-gray-200 h-10 w-10">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-end">
+            <Button onClick={handleGenerate} disabled={generating || !selectedUserId} className="w-full bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium h-10">
+              {generating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</> : <><BarChart3 className="mr-2 h-4 w-4" />Generate Report</>}
+            </Button>
+          </div>
+        </div>
+        <p className="text-xs text-gray-400">The engine analyzes daily reports, categorizes activities, and generates a professional structured report. Force-regenerate overwrites existing reports.</p>
+      </div>
+
+      {/* Bulk Generation Card */}
+      <div className="ufmi-card p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <UsersRound className="h-5 w-5 text-[#0B1F6D]" />
+          <h2 className="text-base font-semibold text-gray-900">Bulk Generation</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Generate monthly reports for all employees or only those missing reports.</p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-700">Month</Label>
+            <span className="text-sm font-semibold">{format(genMonthDate, 'MMMM yyyy')}</span>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={() => handleBulkGenerate(false)} disabled={bulkGenerating} className="rounded-lg border-gray-200 gap-1.5">
+              {bulkGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
+              Generate All
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleBulkGenerate(true)} disabled={bulkGenerating} className="rounded-lg border-gray-200 gap-1.5">
+              {bulkGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+              Generate Missing Only
+            </Button>
+          </div>
+        </div>
+        {bulkGenerating && (
+          <div className="mt-4 flex items-center gap-3 p-3 rounded-lg bg-[#0B1F6D]/5 border border-[#0B1F6D]/10">
+            <Loader2 className="h-4 w-4 animate-spin text-[#0B1F6D]" />
+            <p className="text-sm text-gray-600">Generating reports in progress...</p>
+          </div>
+        )}
+        {bulkResults && (
+          <div className="mt-4 rounded-lg border border-gray-200 overflow-hidden">
+            <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-700">Bulk Generation Results</span>
+              <span className="text-xs text-gray-500">{bulkResults.filter(r => r.success).length}/{bulkResults.length} succeeded</span>
+            </div>
+            <ScrollArea className="max-h-48">
+              {bulkResults.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm border-b border-gray-100 last:border-0">
+                  {r.success ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                  ) : (
+                    <X className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                  )}
+                  <span className="text-gray-700">{r.username}</span>
+                  {!r.success && r.error && (
+                    <span className="text-xs text-red-400 ml-auto">{r.error}</span>
+                  )}
+                </div>
+              ))}
+            </ScrollArea>
+          </div>
+        )}
+      </div>
+
+      {/* Generated Reports */}
+      <div className="ufmi-card p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <h2 className="text-base font-semibold text-gray-900">Generated Reports ({total})</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Search */}
+            <form onSubmit={handleSearch} className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search employee..."
+                className="h-8 w-[180px] pl-8 rounded-lg border-gray-200 text-xs"
+              />
+            </form>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-3"><Skeleton className="h-14 w-full rounded-lg" /><Skeleton className="h-14 w-full rounded-lg" /><Skeleton className="h-14 w-full rounded-lg" /></div>
+        ) : reports.length === 0 ? (
+          <div className="flex flex-col items-center py-12">
+            <BarChart3 className="h-12 w-12 text-gray-300 mb-3" />
+            <p className="text-gray-500 font-medium">No reports generated yet</p>
+            <p className="text-gray-400 text-sm mt-1">Select an employee and month above to generate</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-gray-50/80">
+                  <TableRow className="border-b border-gray-100 hover:bg-transparent">
+                    <TableHead>Employee</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy('month'); setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc') }}>
+                      <span className="flex items-center gap-1">Month {sortBy === 'month' && (sortOrder === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />)}</span>
+                    </TableHead>
+                    <TableHead className="text-right">Reports</TableHead>
+                    <TableHead className="text-right">Rate</TableHead>
+                    <TableHead className="text-right">Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reports.map((r: any) => {
+                    const mDate = parseISO(r.month + '-01')
+                    return (
+                      <TableRow key={r.id} className="border-b border-gray-50 last:border-0">
+                        <TableCell className="text-sm font-medium text-gray-900">{r.user?.username || 'Unknown'}</TableCell>
+                        <TableCell className="text-sm text-gray-600">{format(mDate, 'MMM yyyy')}</TableCell>
+                        <TableCell className="text-sm text-gray-600 text-right">{r.totalReports}</TableCell>
+                        <TableCell className="text-right"><Badge className={r.submissionRate >= 80 ? 'bg-green-50 text-green-700 rounded-full px-2 text-xs' : r.submissionRate >= 50 ? 'bg-amber-50 text-amber-700 rounded-full px-2 text-xs' : 'bg-red-50 text-red-700 rounded-full px-2 text-xs'}>{r.submissionRate}%</Badge></TableCell>
+                        <TableCell className="text-right"><Badge className="bg-blue-50 text-blue-700 rounded-full px-2 text-xs">{r.status}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewReport(r.id)}><Eye className="h-3.5 w-3.5 text-gray-500" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleExport(r.id)}><Download className="h-3.5 w-3.5 text-gray-500" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteConfirmId(r.id)}><Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-[#D94B2B]" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500">
+                  Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-8 rounded-lg border-gray-200" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                    Previous
+                  </Button>
+                  <span className="text-xs text-gray-600 px-2">
+                    Page {page} of {totalPages}
+                  </span>
+                  <Button variant="outline" size="sm" className="h-8 rounded-lg border-gray-200" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Monthly Report</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this monthly report? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (deleteConfirmId) handleDeleteReport(deleteConfirmId) }} className="bg-[#D94B2B] hover:bg-[#c43d20]">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Shared Report Viewer Dialog — reuse the same dialog as employee */}
+      <ReportViewerDialog report={viewingReport} open={viewOpen} onOpenChange={setViewOpen} onExport={(id) => id && handleExport(id)} />
+    </motion.div>
+  )
+}
+
+// =====================================================================
+// SETTINGS VIEW
+// =====================================================================
+
+function SettingsView() {
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
+  const [language, setLanguage] = useState('en')
+
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changeLoading, setChangeLoading] = useState(false)
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error('All fields are required')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+    if (newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters')
+      return
+    }
+    setChangeLoading(true)
+    try {
+      await apiPost('/api/auth/change-password', { oldPassword, newPassword })
+      toast.success('Password changed successfully!')
+      setOldPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to change password')
+    } finally {
+      setChangeLoading(false)
+    }
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6 max-w-2xl">
+      <Breadcrumb items={['Portal', 'Settings']} />
+      <div>
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Settings</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Manage your account and preferences</p>
+      </div>
+
+      {/* Account Information */}
+      <div className="ufmi-card p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <CircleUser className="h-5 w-5 text-[#0B1F6D]" />
+          <h2 className="text-base font-semibold text-gray-900">Account Information</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Username</p>
+              <p className="text-sm font-medium text-gray-900">{user?.username}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Role</p>
+              <Badge className={user?.role === 'admin' ? 'bg-[#0B1F6D]/10 text-[#0B1F6D] rounded-full px-2.5 text-xs font-medium' : 'bg-green-50 text-green-700 rounded-full px-2.5 text-xs font-medium'}>
+                {user?.role === 'admin' ? 'Administrator' : 'Employee'}
+              </Badge>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Position</p>
+              <p className="text-sm font-medium text-gray-900">{user?.profile?.position || 'Not assigned'}</p>
+            </div>
+            {user?.profile?.employeeId && (
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Employee ID</p>
+                <p className="text-sm font-mono font-medium text-gray-900">{user.profile.employeeId}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Change Password */}
+      <div className="ufmi-card p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Shield className="h-5 w-5 text-[#0B1F6D]" />
+          <h2 className="text-base font-semibold text-gray-900">Change Password</h2>
+        </div>
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-gray-700">Current Password</Label>
+            <Input
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              placeholder="Enter current password"
+              className="h-10 rounded-lg border-gray-200"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-gray-700">New Password</Label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password (min 6 characters)"
+              className="h-10 rounded-lg border-gray-200"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-gray-700">Confirm New Password</Label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter new password"
+              className="h-10 rounded-lg border-gray-200"
+              required
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={changeLoading}
+            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium"
+          >
+            {changeLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Changing...
+              </>
+            ) : (
+              'Update Password'
+            )}
+          </Button>
+        </form>
+      </div>
+
+      {/* Display Preferences */}
+      <div className="ufmi-card p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Globe className="h-5 w-5 text-[#0B1F6D]" />
+          <h2 className="text-base font-semibold text-gray-900">Display Preferences</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-gray-700">Language</Label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-full sm:w-[220px] h-10 rounded-lg border-gray-200">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="lg">Luganda</SelectItem>
+                <SelectItem value="sw">Swahili</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-400 mt-1">Language preferences will be applied across the portal.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Logout */}
+      <div className="ufmi-card p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <LogOut className="h-5 w-5 text-[#D94B2B]" />
+          <h2 className="text-base font-semibold text-gray-900">Sign Out</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Sign out of your account on this device.</p>
+        <Button
+          variant="outline"
+          className="border-[#D94B2B]/20 text-[#D94B2B] hover:bg-[#D94B2B]/5 rounded-lg"
+          onClick={() => logout()}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
+    </motion.div>
+  )
+}
+
+// =====================================================================
 // MAIN HOME (SINGLE PAGE ROUTER)
 // =====================================================================
 
@@ -2407,21 +3883,42 @@ export default function Home() {
   const [adminView, setAdminView] = useState<AdminView>('overview')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('')
+  const [helpOpen, setHelpOpen] = useState(false)
 
   useEffect(() => {
     initialize()
   }, [initialize])
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [])
+
   // Listen for admin navigation events from child components
   useEffect(() => {
-    const handler = (e: Event) => {
+    const navHandler = (e: Event) => {
       const view = (e as CustomEvent).detail
       if (isAdmin && view) {
         setAdminView(view as AdminView)
+        window.scrollTo({ top: 0, behavior: 'instant' })
       }
     }
-    window.addEventListener('admin-navigate', handler)
-    return () => window.removeEventListener('admin-navigate', handler)
+    window.addEventListener('admin-navigate', navHandler)
+    return () => window.removeEventListener('admin-navigate', navHandler)
+  }, [isAdmin])
+
+  const handleSearch = useCallback((query: string) => {
+    if (isAdmin) {
+      setAdminView('employees')
+      setGlobalSearchQuery(query)
+      // Clear after a tick so AdminEmployees picks it up
+      setTimeout(() => setGlobalSearchQuery(''), 100)
+      toast.info(`Searching for "${query}"`)
+    } else {
+      setEmployeeView('my-reports')
+      toast.info(`Searching for "${query}"`)
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [isAdmin])
 
   const handleNavigate = useCallback((view: string) => {
@@ -2430,6 +3927,7 @@ export default function Home() {
     } else {
       setEmployeeView(view as EmployeeView)
     }
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [isAdmin])
 
   const handleLogout = useCallback(() => {
@@ -2456,7 +3954,8 @@ export default function Home() {
   if (!isAuthenticated) {
     return (
       <QueryClientProvider client={queryClient}>
-        <LoginPage />
+        <LoginPage onHelpOpen={() => setHelpOpen(true)} />
+        <HelpCenterDialog open={helpOpen} onOpenChange={setHelpOpen} />
         <Toaster position="top-right" richColors theme="light" />
       </QueryClientProvider>
     )
@@ -2469,15 +3968,19 @@ export default function Home() {
     if (isAdmin) {
       switch (adminView) {
         case 'overview': return <AdminOverview />
-        case 'employees': return <AdminEmployees />
+        case 'employees': return <AdminEmployees initialSearch={globalSearchQuery || undefined} />
         case 'reports': return <AdminReports />
+        case 'monthly-reports': return <AdminMonthlyReports />
         case 'export': return <AdminExport />
+        case 'settings': return <SettingsView />
         default: return <AdminOverview />
       }
     } else {
       switch (employeeView) {
         case 'submit': return <EmployeeSubmitReport />
         case 'my-reports': return <EmployeeMyReports />
+        case 'monthly-reports': return <EmployeeMonthlyReports />
+        case 'settings': return <SettingsView />
         default: return <EmployeeSubmitReport />
       }
     }
@@ -2486,6 +3989,9 @@ export default function Home() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-[#F5F7FA]">
+        {/* Help Center Dialog */}
+        <HelpCenterDialog open={helpOpen} onOpenChange={setHelpOpen} />
+
         {/* Sidebar */}
         <Sidebar
           isAdmin={isAdmin}
@@ -2494,52 +4000,44 @@ export default function Home() {
           onLogout={handleLogout}
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onHelpOpen={() => setHelpOpen(true)}
         />
 
-        {/* Main area */}
-        <div
-          className="transition-all duration-300 min-h-screen flex flex-col"
-          style={{ marginLeft: '0' }}
-        >
-          {/* Spacer for sidebar on desktop */}
-          <div className="hidden lg:block fixed top-0 left-0 bottom-0 w-[250px] pointer-events-none" style={{ width: sidebarCollapsed ? '72px' : '250px' }} />
-          <div className="lg:ml-[250px] flex flex-col min-h-screen transition-all duration-300" style={{ marginLeft: undefined }} 
-            ref={(el) => { if (el) el.style.marginLeft = '' }}
-          >
-            {/* Use CSS for the margin instead */}
-            <style>{`
-              @media (min-width: 1024px) {
-                .main-content-area { margin-left: ${sidebarCollapsed ? '72px' : '250px'}; }
-              }
-            `}</style>
-          </div>
-          
-          <div className="main-content-area flex flex-col min-h-screen">
-            {/* Top Header */}
-            <TopHeader
-              onMenuToggle={() => setMobileOpen(!mobileOpen)}
-              mobileOpen={mobileOpen}
-              onMobileOpenChange={setMobileOpen}
-              isAdmin={isAdmin}
-            />
+        {/* Main content area - offset for fixed sidebar on desktop */}
+        <style>{`
+          @media (min-width: 1024px) {
+            .dashboard-main { margin-left: ${sidebarCollapsed ? '72px' : '250px'}; }
+          }
+        `}</style>
+        <div className="dashboard-main flex flex-col min-h-screen transition-all duration-300">
+          {/* Top Header */}
+          <TopHeader
+            onMenuToggle={() => setMobileOpen(!mobileOpen)}
+            mobileOpen={mobileOpen}
+            onMobileOpenChange={setMobileOpen}
+            isAdmin={isAdmin}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+            onSearch={handleSearch}
+            onHelpOpen={() => setHelpOpen(true)}
+          />
 
-            {/* Content */}
-            <main className="flex-1 p-4 lg:p-6">
-              <div className="max-w-7xl mx-auto">
-                <AnimatePresence mode="wait">
-                  {renderContent()}
-                </AnimatePresence>
-              </div>
-            </main>
+          {/* Content */}
+          <main className="flex-1 px-4 pt-2 pb-4 lg:px-6 lg:pb-6">
+            <div className="max-w-7xl mx-auto">
+              <AnimatePresence mode="wait">
+                {renderContent()}
+              </AnimatePresence>
+            </div>
+          </main>
 
-            {/* Footer */}
-            <footer className="border-t border-gray-200/80 bg-white px-4 lg:px-6 py-3">
-              <div className="max-w-7xl mx-auto flex items-center justify-between">
-                <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} UFMI Enterprise. All rights reserved.</p>
-                <p className="text-xs text-gray-400 hidden sm:block">Uganda Film Movie Industry Operations Portal</p>
-              </div>
-            </footer>
-          </div>
+          {/* Footer */}
+          <footer className="mt-auto border-t border-gray-200/80 bg-white px-4 lg:px-6 py-3">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Uganda Federation of Movie Industry. All rights reserved.</p>
+              <p className="text-xs text-gray-400 hidden sm:block">Uganda Federation of Movie Industry Portal</p>
+            </div>
+          </footer>
         </div>
       </div>
       <Toaster position="top-right" richColors theme="light" />

@@ -68,7 +68,6 @@ export async function POST(request: NextRequest) {
         profile: user.profile ? {
           employeeId: user.profile.employeeId,
           position: user.profile.position,
-          department: user.profile.department,
         } : null,
       },
     })

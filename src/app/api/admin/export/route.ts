@@ -41,7 +41,6 @@ export async function GET(request: NextRequest) {
               select: {
                 employeeId: true,
                 position: true,
-                department: true,
               },
             },
           },
@@ -64,22 +63,13 @@ export async function GET(request: NextRequest) {
 
     // Create Excel workbook
     const workbook = new ExcelJS.Workbook()
-    workbook.creator = 'Daily Report System'
+    workbook.creator = 'UFMI Daily Report System'
     workbook.created = new Date()
 
-    // Summary sheet
-    const summarySheet = workbook.addWorksheet('Summary')
-    summarySheet.columns = [
-      { header: 'Employee', key: 'employee', width: 20 },
-      { header: 'Employee ID', key: 'employeeId', width: 15 },
-      { header: 'Department', key: 'department', width: 20 },
-      { header: 'Position', key: 'position', width: 20 },
-      { header: 'Total Reports', key: 'totalReports', width: 15 },
-      { header: 'First Report', key: 'firstReport', width: 15 },
-      { header: 'Last Report', key: 'lastReport', width: 15 },
-    ]
+    const BRANDED = 'FF0B1F6D'
+    const GREEN = 'FF059669'
 
-    // Group reports by user
+    // Group reports by user for summary
     const userReports: Record<string, typeof reports> = {}
     for (const report of reports) {
       if (!userReports[report.userId]) {
@@ -87,6 +77,71 @@ export async function GET(request: NextRequest) {
       }
       userReports[report.userId].push(report)
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // SHEET 1: DAILY REPORTS (Detailed — first sheet so users see data immediately)
+    // ══════════════════════════════════════════════════════════════
+    const detailSheet = workbook.addWorksheet('Daily Reports')
+    detailSheet.columns = [
+      { header: 'Date', key: 'date', width: 14 },
+      { header: 'Employee', key: 'employee', width: 20 },
+      { header: 'Employee ID', key: 'employeeId', width: 14 },
+      { header: 'Position', key: 'position', width: 25 },
+      { header: 'Time In', key: 'timeIn', width: 10 },
+      { header: 'Time Out', key: 'timeOut', width: 10 },
+      { header: 'Activity Description', key: 'activity', width: 55 },
+      { header: 'Location', key: 'location', width: 25 },
+      { header: 'Comments / Notes', key: 'comments', width: 40 },
+    ]
+
+    for (const report of reports) {
+      detailSheet.addRow({
+        date: report.date,
+        employee: report.user.username,
+        employeeId: report.user.profile?.employeeId || 'N/A',
+        position: report.user.profile?.position || 'N/A',
+        timeIn: report.timeIn || '',
+        timeOut: report.timeOut || '',
+        activity: report.activityText,
+        location: report.location || '',
+        comments: report.comments || '',
+      })
+    }
+
+    // Style detail header
+    const detailHeaderRow = detailSheet.getRow(1)
+    detailHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    detailHeaderRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: BRANDED },
+    }
+
+    // Add alternating row colors for readability
+    detailSheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        if (rowNumber % 2 === 0) {
+          row.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FC' },
+          }
+        }
+      }
+    })
+
+    // ══════════════════════════════════════════════════════════════
+    // SHEET 2: EMPLOYEE SUMMARY
+    // ══════════════════════════════════════════════════════════════
+    const summarySheet = workbook.addWorksheet('Employee Summary')
+    summarySheet.columns = [
+      { header: 'Employee', key: 'employee', width: 20 },
+      { header: 'Employee ID', key: 'employeeId', width: 14 },
+      { header: 'Position', key: 'position', width: 25 },
+      { header: 'Total Reports', key: 'totalReports', width: 14 },
+      { header: 'First Report', key: 'firstReport', width: 14 },
+      { header: 'Last Report', key: 'lastReport', width: 14 },
+    ]
 
     // Fill summary
     for (const [userId, userReportList] of Object.entries(userReports)) {
@@ -96,7 +151,6 @@ export async function GET(request: NextRequest) {
       summarySheet.addRow({
         employee: firstReport.user.username,
         employeeId: firstReport.user.profile?.employeeId || 'N/A',
-        department: firstReport.user.profile?.department || 'N/A',
         position: firstReport.user.profile?.position || 'N/A',
         totalReports: userReportList.length,
         firstReport: firstReport.date,
@@ -110,39 +164,21 @@ export async function GET(request: NextRequest) {
     summaryHeaderRow.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF059669' },
+      fgColor: { argb: GREEN },
     }
 
-    // Detail sheet
-    const detailSheet = workbook.addWorksheet('Daily Reports')
-    detailSheet.columns = [
-      { header: 'Date', key: 'date', width: 15 },
-      { header: 'Employee', key: 'employee', width: 20 },
-      { header: 'Employee ID', key: 'employeeId', width: 15 },
-      { header: 'Department', key: 'department', width: 20 },
-      { header: 'Position', key: 'position', width: 20 },
-      { header: 'Activity', key: 'activity', width: 60 },
-    ]
-
-    for (const report of reports) {
-      detailSheet.addRow({
-        date: report.date,
-        employee: report.user.username,
-        employeeId: report.user.profile?.employeeId || 'N/A',
-        department: report.user.profile?.department || 'N/A',
-        position: report.user.profile?.position || 'N/A',
-        activity: report.activityText,
-      })
-    }
-
-    // Style detail header
-    const detailHeaderRow = detailSheet.getRow(1)
-    detailHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-    detailHeaderRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF059669' },
-    }
+    // Add alternating row colors
+    summarySheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        if (rowNumber % 2 === 0) {
+          row.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FC' },
+          }
+        }
+      }
+    })
 
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer()

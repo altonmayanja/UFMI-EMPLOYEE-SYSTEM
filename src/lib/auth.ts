@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'daily-report-system-secret-key-change-in-production'
@@ -38,4 +38,38 @@ export function getTokenFromRequest(request: NextRequest): string | null {
     return authHeader.substring(7)
   }
   return null
+}
+
+/**
+ * Authenticate a request and return the JWT payload.
+ * Returns null if unauthenticated or token invalid.
+ */
+export async function authenticateRequest(request: NextRequest): Promise<JWTPayload | null> {
+  const token = getTokenFromRequest(request)
+  if (!token) return null
+  return verifyToken(token)
+}
+
+/**
+ * Authenticate a request and verify the user is an admin.
+ * Returns the admin payload or null.
+ */
+export async function authenticateAdmin(request: NextRequest): Promise<JWTPayload | null> {
+  const payload = await authenticateRequest(request)
+  if (!payload || payload.role !== 'admin') return null
+  return payload
+}
+
+/**
+ * Helper: return a 401 Unauthorized response.
+ */
+export function unauthorizedResponse(message = 'Unauthorized') {
+  return NextResponse.json({ error: message }, { status: 401 })
+}
+
+/**
+ * Helper: return a 403 Forbidden response.
+ */
+export function forbiddenResponse(message = 'Forbidden') {
+  return NextResponse.json({ error: message }, { status: 403 })
 }

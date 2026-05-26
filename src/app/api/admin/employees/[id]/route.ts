@@ -25,7 +25,7 @@ export async function PATCH(
 
     const { id } = await params
     const body = await request.json()
-    const { status, position, department, password } = body
+    const { status, position, password } = body
 
     const user = await db.user.findUnique({
       where: { id },
@@ -53,10 +53,6 @@ export async function PATCH(
 
     if (position) {
       profileUpdates.position = position
-    }
-
-    if (department) {
-      profileUpdates.department = department
     }
 
     if (password) {

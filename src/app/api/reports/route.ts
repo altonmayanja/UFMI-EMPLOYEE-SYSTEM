@@ -56,11 +56,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { date, activityText } = body
+    const { date, activityText, location, timeIn, timeOut, comments } = body
 
     if (!date || !activityText) {
       return NextResponse.json(
         { error: 'Date and activity text are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate time format (HH:MM) if provided
+    const timeRegex = /^\d{2}:\d{2}$/
+    if (timeIn && !timeRegex.test(timeIn)) {
+      return NextResponse.json(
+        { error: 'Invalid time-in format. Use HH:MM (e.g. 08:00)' },
+        { status: 400 }
+      )
+    }
+    if (timeOut && !timeRegex.test(timeOut)) {
+      return NextResponse.json(
+        { error: 'Invalid time-out format. Use HH:MM (e.g. 17:00)' },
         { status: 400 }
       )
     }
@@ -96,6 +111,10 @@ export async function POST(request: NextRequest) {
         userId: payload.userId,
         date,
         activityText: activityText.trim(),
+        location: location?.trim() || null,
+        timeIn: timeIn?.trim() || null,
+        timeOut: timeOut?.trim() || null,
+        comments: comments?.trim() || null,
       },
     })
 
