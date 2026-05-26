@@ -1362,16 +1362,18 @@ function AdminOverview() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">Position</Label>
-                <Select value={addForm.position} onValueChange={(v) => setAddForm({ ...addForm, position: v })}>
-                  <SelectTrigger className="h-10 rounded-lg border-gray-200">
-                    <SelectValue placeholder="Select position" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {positions.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  value={addForm.position}
+                  onChange={(e) => setAddForm({ ...addForm, position: e.target.value })}
+                  placeholder="Select or type position"
+                  list="position-list"
+                  className="h-10 rounded-lg border-gray-200"
+                />
+                <datalist id="position-list">
+                  {positions.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
               </div>
             </div>
           </div>
@@ -2454,16 +2456,18 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Position</Label>
-              <Select value={addForm.position} onValueChange={(v) => setAddForm({ ...addForm, position: v })}>
-                <SelectTrigger className="w-full rounded-lg border-gray-200">
-                  <SelectValue placeholder="Select position" />
-                </SelectTrigger>
-                <SelectContent>
-                  {positions.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                value={addForm.position}
+                onChange={(e) => setAddForm({ ...addForm, position: e.target.value })}
+                placeholder="Select or type position"
+                list="position-list-mgmt"
+                className="rounded-lg border-gray-200"
+              />
+              <datalist id="position-list-mgmt">
+                {positions.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
             </div>
           </div>
           <DialogFooter>
@@ -2503,16 +2507,18 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Position</Label>
-              <Select value={editForm.position} onValueChange={(v) => setEditForm({ ...editForm, position: v })}>
-                <SelectTrigger className="w-full rounded-lg border-gray-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {positions.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                value={editForm.position}
+                onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
+                placeholder="Select or type position"
+                list="position-list-edit"
+                className="rounded-lg border-gray-200"
+              />
+              <datalist id="position-list-edit">
+                {positions.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Reset Password (leave blank to keep current)</Label>

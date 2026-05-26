@@ -82,10 +82,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate position
-    if (!POSITIONS.includes(position)) {
+    // Validate position - allow predefined or custom positions
+    const trimmedPosition = position.trim()
+    if (!trimmedPosition || trimmedPosition.length < 2) {
       return NextResponse.json(
-        { error: `Invalid position. Must be one of: ${POSITIONS.join(', ')}` },
+        { error: 'Position must be at least 2 characters' },
         { status: 400 }
       )
     }
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
         profile: {
           create: {
             employeeId,
-            position,
+            position: trimmedPosition,
           },
         },
       },
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
           targetUserId: user.id,
           username: user.username,
           employeeId,
-          position,
+          position: trimmedPosition,
         }),
       },
     })
