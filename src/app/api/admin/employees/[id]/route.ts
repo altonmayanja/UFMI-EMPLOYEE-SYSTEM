@@ -25,7 +25,7 @@ export async function PATCH(
 
     const { id } = await params
     const body = await request.json()
-    const { status, position, password } = body
+    const { username, status, position, employeeId, password } = body
 
     const user = await db.user.findUnique({
       where: { id },
@@ -47,12 +47,31 @@ export async function PATCH(
     const updates: Record<string, unknown> = {}
     const profileUpdates: Record<string, unknown> = {}
 
+    // Update username
+    if (username && typeof username === 'string' && username.trim()) {
+      // Check if username is taken by another user
+      const existing = await db.user.findFirst({ where: { username: username.trim(), NOT: { id } } })
+      if (existing) {
+        return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
+      }
+      updates.username = username.trim()
+    }
+
     if (status && ['active', 'suspended', 'archived'].includes(status)) {
       updates.status = status
     }
 
     if (position) {
       profileUpdates.position = position
+    }
+
+    // Update employee ID
+    if (employeeId && typeof employeeId === 'string' && employeeId.trim()) {
+      const existing = await db.employeeProfile.findFirst({ where: { employeeId: employeeId.trim(), NOT: { userId: id } } })
+      if (existing) {
+        return NextResponse.json({ error: 'Employee ID is already taken' }, { status: 409 })
+      }
+      profileUpdates.employeeId = employeeId.trim()
     }
 
     if (password) {

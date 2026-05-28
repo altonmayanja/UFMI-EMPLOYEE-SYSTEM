@@ -11,7 +11,7 @@ import {
   ChevronLeft, ChevronRight, LogOut, Menu, Plus, Pencil,
   Trash2, Loader2, CalendarDays, UserCheck, AlertCircle,
   Search, X, CheckCircle2, Clock,
-  UserCircle, Eye, ChevronDown,
+  UserCircle, Eye, EyeOff, ChevronDown,
   Clapperboard, Shield, Bell, HelpCircle, ArrowRight,
   Lock, LayoutDashboard, ClipboardCheck, CircleUser,
   ChevronUp, TrendingUp, Settings, MessageSquare,
@@ -279,6 +279,7 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
 function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showLoginPwd, setShowLoginPwd] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
@@ -359,13 +360,20 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showLoginPwd ? 'text' : 'password'}
                     placeholder={t('login.passwordPlaceholder')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="h-11 pl-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
+                    className="h-11 pl-10 pr-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPwd(!showLoginPwd)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showLoginPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -1275,6 +1283,7 @@ function AdminOverview() {
   })
 
   const [addOpen, setAddOpen] = useState(false)
+  const [dashAddShowPwd, setDashAddShowPwd] = useState(false)
   const [addForm, setAddForm] = useState({ username: '', password: '', employeeId: '', position: '' })
   const { data: employeesData } = useQuery<EmployeesData>({
     queryKey: ['employees-positions'],
@@ -1349,13 +1358,22 @@ function AdminOverview() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-gray-700">Password</Label>
-              <Input
-                type="password"
-                value={addForm.password}
-                onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
-                placeholder="Min 6 characters"
-                className="h-10 rounded-lg border-gray-200"
-              />
+              <div className="relative">
+                <Input
+                  type={dashAddShowPwd ? 'text' : 'password'}
+                  value={addForm.password}
+                  onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                  placeholder="Min 6 characters"
+                  className="h-10 rounded-lg border-gray-200 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setDashAddShowPwd(!dashAddShowPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {dashAddShowPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -2191,12 +2209,14 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
   const [search, setSearch] = useState(initialSearch || '')
   const [statusFilter, setStatusFilter] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
+  const [empAddShowPwd, setEmpAddShowPwd] = useState(false)
   const [editTarget, setEditTarget] = useState<Employee | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
+  const [editShowPwd, setEditShowPwd] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   const [addForm, setAddForm] = useState({ username: '', password: '', employeeId: '', position: '' })
-  const [editForm, setEditForm] = useState({ status: '', position: '', password: '' })
+  const [editForm, setEditForm] = useState({ username: '', status: '', position: '', employeeId: '', password: '' })
 
   // Sync search with initialSearch prop changes
   useEffect(() => {
@@ -2251,8 +2271,10 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
   const openEdit = (emp: Employee) => {
     setEditTarget(emp)
     setEditForm({
+      username: emp.username,
       status: emp.status,
       position: emp.profile?.position || '',
+      employeeId: emp.profile?.employeeId || '',
       password: ''
     })
   }
@@ -2445,13 +2467,22 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Password</Label>
-              <Input
-                type="password"
-                value={addForm.password}
-                onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
-                placeholder="Enter password"
-                className="rounded-lg border-gray-200"
-              />
+              <div className="relative">
+                <Input
+                  type={empAddShowPwd ? 'text' : 'password'}
+                  value={addForm.password}
+                  onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                  placeholder="Enter password"
+                  className="rounded-lg border-gray-200 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setEmpAddShowPwd(!empAddShowPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {empAddShowPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Employee ID</Label>
@@ -2499,20 +2530,40 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-sm">Status</Label>
-              <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
-                <SelectTrigger className="w-full rounded-lg border-gray-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-sm font-medium text-gray-700">Username</Label>
+              <Input
+                value={editForm.username}
+                onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                placeholder="Username"
+                className="rounded-lg border-gray-200"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">Employee ID</Label>
+                <Input
+                  value={editForm.employeeId}
+                  onChange={(e) => setEditForm({ ...editForm, employeeId: e.target.value })}
+                  placeholder="EMP-001"
+                  className="rounded-lg border-gray-200"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">Status</Label>
+                <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                  <SelectTrigger className="w-full rounded-lg border-gray-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm">Position</Label>
+              <Label className="text-sm font-medium text-gray-700">Position</Label>
               <Select value={editForm.position} onValueChange={(v) => setEditForm({ ...editForm, position: v })}>
                 <SelectTrigger className="w-full rounded-lg border-gray-200">
                   <SelectValue />
@@ -2525,14 +2576,23 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm">Reset Password (leave blank to keep current)</Label>
-              <Input
-                type="password"
-                value={editForm.password}
-                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                placeholder="New password"
-                className="rounded-lg border-gray-200"
-              />
+              <Label className="text-sm font-medium text-gray-700">Reset Password <span className="text-gray-400 font-normal">(leave blank to keep current)</span></Label>
+              <div className="relative">
+                <Input
+                  type={editShowPwd ? 'text' : 'password'}
+                  value={editForm.password}
+                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                  placeholder="New password"
+                  className="rounded-lg border-gray-200 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setEditShowPwd(!editShowPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {editShowPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -3712,6 +3772,9 @@ function SettingsView() {
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showOldPwd, setShowOldPwd] = useState(false)
+  const [showNewPwd, setShowNewPwd] = useState(false)
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const [changeLoading, setChangeLoading] = useState(false)
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -3791,36 +3854,63 @@ function SettingsView() {
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-gray-700">Current Password</Label>
-            <Input
-              type="password"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              placeholder="Enter current password"
-              className="h-10 rounded-lg border-gray-200"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showOldPwd ? 'text' : 'password'}
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                placeholder="Enter current password"
+                className="h-10 rounded-lg border-gray-200 pr-10"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowOldPwd(!showOldPwd)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showOldPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-gray-700">New Password</Label>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password (min 6 characters)"
-              className="h-10 rounded-lg border-gray-200"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showNewPwd ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password (min 6 characters)"
+                className="h-10 rounded-lg border-gray-200 pr-10"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPwd(!showNewPwd)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showNewPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-gray-700">Confirm New Password</Label>
-            <Input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Re-enter new password"
-              className="h-10 rounded-lg border-gray-200"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showConfirmPwd ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter new password"
+                className="h-10 rounded-lg border-gray-200 pr-10"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showConfirmPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <Button
             type="submit"
