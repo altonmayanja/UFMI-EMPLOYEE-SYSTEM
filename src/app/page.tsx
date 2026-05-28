@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 
 import { useAuthStore, type User } from '@/store/auth-store'
+import { useTranslation } from '@/lib/i18n'
 import { apiPost, apiGet, apiPut, apiDelete, apiPatch, ApiError } from '@/lib/api'
 import type { MonthlyReportListItem, MonthlyReportDetail, BulkGenerateResult, PaginatedReports as MonthlyPaginatedReports } from '@/types/report'
 
@@ -282,6 +283,7 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
   const [error, setError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
   const login = useAuthStore((s) => s.login)
+  const { t, locale, setLocale } = useTranslation()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -290,12 +292,12 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
     try {
       const data = await apiPost<{ token: string; user: User }>('/api/auth/login', { username, password })
       login(data.token, data.user)
-      toast.success('Welcome to UFMI Portal!')
+      toast.success(t('login.welcome'))
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Something went wrong. Please try again.')
+        setError(t('login.error'))
       }
     } finally {
       setLoading(false)
@@ -319,8 +321,8 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
             <div className="mx-auto w-16 h-16 rounded-2xl overflow-hidden mb-5 shadow-lg">
               <Image src="/logo.png" alt="UFMI Logo" width={64} height={64} className="w-full h-full object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">UFMI Portal</h1>
-            <p className="text-sm text-gray-500 mt-1">Uganda Federation of Movie Industry</p>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('login.title')}</h1>
+            <p className="text-sm text-gray-500 mt-1">{t('login.subtitle')}</p>
           </div>
 
           <CardContent className="px-8 pb-8 pt-2">
@@ -337,12 +339,12 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-gray-700">Username</Label>
+                <Label htmlFor="username" className="text-sm font-medium text-gray-700">{t('login.username')}</Label>
                 <div className="relative">
                   <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="username"
-                    placeholder="Enter your username"
+                    placeholder={t('login.usernamePlaceholder')}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -352,13 +354,13 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">{t('login.password')}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter your password"
+                    placeholder={t('login.passwordPlaceholder')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -369,7 +371,7 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
 
               <div className="flex justify-end">
                 <button type="button" onClick={() => setForgotOpen(true)} className="text-sm font-medium text-[#0B1F6D] hover:text-[#1e3a8a] transition-colors">
-                  Forgot Password?
+                  {t('login.forgotPassword')}
                 </button>
               </div>
 
@@ -381,11 +383,11 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
+                    {t('login.signingIn')}
                   </>
                 ) : (
                   <>
-                    Secure Sign In
+                    {t('login.signIn')}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -396,10 +398,10 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
             <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-100">
               <button type="button" onClick={onHelpOpen} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#0B1F6D] transition-colors">
                 <HelpCircle className="h-3.5 w-3.5" />
-                Help Center
+                {t('login.helpCenter')}
               </button>
               <button type="button" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
-                English
+                {locale === 'en' ? 'English' : locale === 'lg' ? 'Luganda' : 'Swahili'}
               </button>
             </div>
           </CardContent>
@@ -408,13 +410,13 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
           <div className="bg-gray-50 border-t border-gray-100 px-8 py-4">
             <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
               <Lock className="h-3 w-3" />
-              <span className="font-medium tracking-wider">END-TO-END ENCRYPTED GATEWAY</span>
+              <span className="font-medium tracking-wider">{t('login.encrypted')}</span>
             </div>
           </div>
         </Card>
 
         <p className="text-center text-xs text-white/30 mt-6">
-          &copy; {new Date().getFullYear()} Uganda Federation of Movie Industry. All rights reserved.
+          &copy; {new Date().getFullYear()} {t('login.copyright')}
         </p>
 
         {/* Forgot Password Dialog */}
@@ -434,6 +436,7 @@ function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { t } = useTranslation()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -449,7 +452,7 @@ function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Something went wrong. Please try again.')
+        setError(t('login.error'))
       }
     } finally {
       setLoading(false)
@@ -471,12 +474,12 @@ function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
       <DialogContent className="sm:max-w-md rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-lg">
-            {step === 'success' ? 'Request Submitted' : 'Forgot Password?'}
+            {step === 'success' ? t('forgot.title') : t('login.forgotPassword')}
           </DialogTitle>
           <DialogDescription>
             {step === 'success'
-              ? 'Your request has been sent to the administrator.'
-              : 'Submit a password reset request. The admin will review it and update your credentials.'}
+              ? t('forgot.description')
+              : t('forgot.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -486,13 +489,13 @@ function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
               <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
             <div className="text-center space-y-1">
-              <p className="text-sm font-semibold text-gray-900">Request Sent Successfully</p>
+              <p className="text-sm font-semibold text-gray-900">{t('forgot.success')}</p>
               <p className="text-xs text-gray-500">
-                The administrator has been notified. They will reset your password and you&apos;ll be able to log in with the new credentials.
+                {t('forgot.successMessage')}
               </p>
             </div>
             <Button onClick={() => handleClose(false)} className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg">
-              Back to Login
+              {t('forgot.backToLogin')}
             </Button>
           </div>
         ) : (
@@ -505,22 +508,22 @@ function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
             )}
 
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-gray-700">Username</Label>
+              <Label className="text-sm font-medium text-gray-700">{t('forgot.username')}</Label>
               <Input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
+                placeholder={t('forgot.usernamePlaceholder')}
                 required
                 className="h-10 rounded-lg border-gray-200"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-gray-700">Message to Admin <span className="text-gray-400 font-normal">(optional)</span></Label>
+              <Label className="text-sm font-medium text-gray-700">{t('forgot.message')} <span className="text-gray-400 font-normal">{t('forgot.messageOptional')}</span></Label>
               <Textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Explain why you need a password reset..."
+                placeholder={t('forgot.messagePlaceholder')}
                 rows={3}
                 className="rounded-lg border-gray-200 resize-none"
               />
@@ -528,16 +531,16 @@ function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
             <div className="flex gap-2 pt-1">
               <Button type="button" variant="outline" onClick={() => handleClose(false)} className="flex-1 rounded-lg border-gray-200">
-                Cancel
+                {t('forgot.cancel')}
               </Button>
               <Button type="submit" disabled={loading} className="flex-1 bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg">
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
+                    {t('forgot.submitting')}
                   </>
                 ) : (
-                  'Submit Request'
+                  t('forgot.submitRequest')
                 )}
               </Button>
             </div>
@@ -571,6 +574,7 @@ function Sidebar({
 }) {
   const items = isAdmin ? adminNavItems : employeeNavItems
   const user = useAuthStore((s) => s.user)
+  const { t } = useTranslation()
 
   return (
     <aside
@@ -587,8 +591,8 @@ function Sidebar({
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <h1 className="text-sm font-bold text-white leading-none tracking-tight">UFMI Portal</h1>
-            <p className="text-[10px] text-blue-300/60 mt-0.5">Operations Portal</p>
+            <h1 className="text-sm font-bold text-white leading-none tracking-tight">{t('sidebar.portal')}</h1>
+            <p className="text-[10px] text-blue-300/60 mt-0.5">{t('sidebar.operationsPortal')}</p>
           </div>
         )}
       </div>
@@ -596,7 +600,7 @@ function Sidebar({
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto sidebar-scrollbar py-4 px-3 space-y-1">
         {!collapsed && isAdmin && (
-          <p className="text-[10px] font-semibold text-blue-300/40 uppercase tracking-wider px-3 mb-2">Navigation</p>
+          <p className="text-[10px] font-semibold text-blue-300/40 uppercase tracking-wider px-3 mb-2">{t('sidebar.navigation')}</p>
         )}
         {items.map((item) => (
           <button
@@ -625,22 +629,22 @@ function Sidebar({
             className={`w-full flex items-center gap-3 rounded-lg text-sm font-medium text-white bg-[#D94B2B]/90 hover:bg-[#D94B2B] transition-all ${
               collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
             }`}
-            title={collapsed ? 'Submit Report' : undefined}
+            title={collapsed ? t('nav.submitReport') : undefined}
           >
             <Send className="h-4 w-4" />
-            {!collapsed && 'Submit Report'}
+            {!collapsed && t('nav.submitReport')}
           </button>
         )}
 
         {!collapsed && (
           <button onClick={onHelpOpen} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-blue-200/70 hover:bg-white/8 hover:text-white transition-all">
             <HelpCircle className="h-4 w-4" />
-            Help Center
+            {t('nav.helpCenter')}
           </button>
         )}
 
         {collapsed && (
-          <button onClick={onHelpOpen} className="w-full flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium text-blue-200/70 hover:bg-white/8 hover:text-white transition-all" title="Help Center">
+          <button onClick={onHelpOpen} className="w-full flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium text-blue-200/70 hover:bg-white/8 hover:text-white transition-all" title={t('nav.helpCenter')}>
             <HelpCircle className="h-4 w-4" />
           </button>
         )}
@@ -650,10 +654,10 @@ function Sidebar({
           className={`w-full flex items-center gap-3 rounded-lg text-sm font-medium text-red-300/80 hover:bg-red-500/15 hover:text-red-300 transition-all ${
             collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
           }`}
-          title={collapsed ? 'Sign Out' : undefined}
+          title={collapsed ? t('nav.signOut') : undefined}
         >
           <LogOut className="h-4 w-4" />
-          {!collapsed && 'Sign Out'}
+          {!collapsed && t('nav.signOut')}
         </button>
       </div>
 
@@ -669,7 +673,7 @@ function Sidebar({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{user?.username}</p>
               <p className="text-[10px] text-blue-300/50">
-                {user?.role === 'admin' ? 'Administrator' : (user?.profile?.position || user?.role)}
+                {user?.role === 'admin' ? t('sidebar.administrator') : (user?.profile?.position || user?.role)}
               </p>
             </div>
           </div>
@@ -680,7 +684,7 @@ function Sidebar({
       {!collapsed && (
         <div className="px-4 pb-3">
           <p className="text-[9px] text-blue-300/25 leading-tight">
-            &copy; {new Date().getFullYear()} Uganda Federation of Movie Industry
+            &copy; {new Date().getFullYear()} {t('sidebar.copyright')}
           </p>
         </div>
       )}
@@ -719,26 +723,27 @@ function MobileSidebar({
 }) {
   const items = isAdmin ? adminNavItems : employeeNavItems
   const user = useAuthStore((s) => s.user)
+  const { t } = useTranslation()
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="p-0 w-[260px]" style={{ background: '#0B1F6D' }}>
-        <SheetTitle className="sr-only">Navigation</SheetTitle>
+        <SheetTitle className="sr-only">{t('sidebar.navigation')}</SheetTitle>
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10">
           <div className="w-9 h-9 rounded-xl overflow-hidden">
             <Image src="/logo.png" alt="UFMI Logo" width={36} height={36} className="w-full h-full object-contain" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white leading-none">UFMI Portal</h1>
-            <p className="text-[10px] text-blue-300/60 mt-0.5">Operations Portal</p>
+            <h1 className="text-sm font-bold text-white leading-none">{t('sidebar.portal')}</h1>
+            <p className="text-[10px] text-blue-300/60 mt-0.5">{t('sidebar.operationsPortal')}</p>
           </div>
         </div>
 
         {/* Nav */}
         <nav className="py-4 px-3 space-y-1">
           {isAdmin && (
-            <p className="text-[10px] font-semibold text-blue-300/40 uppercase tracking-wider px-3 mb-2">Navigation</p>
+            <p className="text-[10px] font-semibold text-blue-300/40 uppercase tracking-wider px-3 mb-2">{t('sidebar.navigation')}</p>
           )}
           {items.map((item) => (
             <button
@@ -765,7 +770,7 @@ function MobileSidebar({
             <div>
               <p className="text-sm font-medium text-white">{user?.username}</p>
               <p className="text-[10px] text-blue-300/50">
-                {user?.role === 'admin' ? 'Administrator' : (user?.profile?.position || user?.role)}
+                {user?.role === 'admin' ? t('sidebar.administrator') : (user?.profile?.position || user?.role)}
               </p>
             </div>
           </div>
@@ -774,14 +779,14 @@ function MobileSidebar({
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-blue-200/70 hover:bg-white/8 hover:text-white transition-all"
           >
             <HelpCircle className="h-4 w-4" />
-            Help Center
+            {t('nav.helpCenter')}
           </button>
           <button
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-300/80 hover:bg-red-500/15 hover:text-red-300 transition-all"
           >
             <LogOut className="h-4 w-4" />
-            Sign Out
+            {t('nav.signOut')}
           </button>
         </div>
       </SheetContent>
@@ -816,6 +821,7 @@ function TopHeader({
   const [searchValue, setSearchValue] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
   const qc = useQueryClient()
+  const { t } = useTranslation()
 
   // Real notifications from API
   const { data: notifData, isLoading: notifLoading } = useQuery<{ notifications: Array<{ id: string; title: string; message: string; type: string; read: boolean; createdAt: string }>; unreadCount: number }>({
@@ -945,7 +951,7 @@ function TopHeader({
           <SheetHeader className="px-6 pt-8">
             <SheetTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <Bell className="h-5 w-5 text-[#0B1F6D]" />
-              Notifications
+              {t('notifications.title')}
             </SheetTitle>
             <SheetDescription>
               {isAdmin ? 'Password reset requests & system updates' : 'System notifications & reminders'}
@@ -966,7 +972,7 @@ function TopHeader({
                       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Notifications</h3>
                       {unreadCount > 0 && (
                         <button onClick={markAllRead} className="text-[10px] font-medium text-[#0B1F6D] hover:underline">
-                          Mark all read
+                          {t('notifications.markAllRead')}
                         </button>
                       )}
                     </div>
@@ -1011,7 +1017,7 @@ function TopHeader({
                     {resetRequests.length === 0 ? (
                       <div className="flex flex-col items-center py-4">
                         <CheckCircle2 className="h-8 w-8 text-green-400 mb-1.5" />
-                        <p className="text-sm text-gray-500 font-medium">No pending requests</p>
+                        <p className="text-sm text-gray-500 font-medium">{t('notifications.noRequests')}</p>
                       </div>
                     ) : (
                       <ScrollArea className="max-h-[300px]">
@@ -1047,8 +1053,8 @@ function TopHeader({
                 {notifications.length === 0 && (!isAdmin || resetRequests.length === 0) && (
                   <div className="flex flex-col items-center py-8">
                     <CheckCircle2 className="h-10 w-10 text-green-400 mb-2" />
-                    <p className="text-sm text-gray-500 font-medium">All caught up!</p>
-                    <p className="text-xs text-gray-400 mt-0.5">No new notifications right now.</p>
+                    <p className="text-sm text-gray-500 font-medium">{t('notifications.allCaughtUp')}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{t('notifications.noNotifications')}</p>
                   </div>
                 )}
               </div>
@@ -1261,6 +1267,7 @@ function PasswordResetRequests() {
 // =====================================================================
 
 function AdminOverview() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { data: stats, isLoading, isError } = useQuery<AdminStats>({
     queryKey: ['admin-stats'],
@@ -1601,6 +1608,7 @@ function AdminOverview() {
 // =====================================================================
 
 function EmployeeSubmitReport() {
+  const { t } = useTranslation()
   const today = new Date()
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     if (typeof window === 'undefined') return today
@@ -1923,6 +1931,7 @@ function EmployeeSubmitReport() {
 // =====================================================================
 
 function EmployeeMyReports() {
+  const { t } = useTranslation()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [editingReport, setEditingReport] = useState<DailyReport | null>(null)
   const [editText, setEditText] = useState('')
@@ -2177,6 +2186,7 @@ function EmployeeMyReports() {
 // =====================================================================
 
 function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [search, setSearch] = useState(initialSearch || '')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -2367,7 +2377,7 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
         </div>
       ) : (
         <div className="ufmi-card overflow-hidden">
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="h-[60vh] min-h-[300px]">
             <Table>
               <TableHeader className="ufmi-table-header bg-gray-50/80">
                 <TableRow className="border-b border-gray-100 hover:bg-transparent">
@@ -2692,7 +2702,7 @@ function AdminReports() {
         </div>
       ) : (
         <div className="ufmi-card overflow-hidden">
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="h-[60vh] min-h-[300px]">
             <Table>
               <TableHeader className="ufmi-table-header bg-gray-50/80">
                 <TableRow className="border-b border-gray-100 hover:bg-transparent">
@@ -3697,7 +3707,7 @@ function AdminMonthlyReports() {
 function SettingsView() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
-  const [language, setLanguage] = useState('en')
+  const { t, locale, setLocale } = useTranslation()
 
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -3838,7 +3848,7 @@ function SettingsView() {
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-gray-700">Language</Label>
-            <Select value={language} onValueChange={setLanguage}>
+            <Select value={locale} onValueChange={(v) => setLocale(v as 'en' | 'lg' | 'sw')}>
               <SelectTrigger className="w-full sm:w-[220px] h-10 rounded-lg border-gray-200">
                 <SelectValue />
               </SelectTrigger>
