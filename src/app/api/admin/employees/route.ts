@@ -12,17 +12,16 @@ async function authenticateAdmin(request: NextRequest) {
   return payload
 }
 
-// Predefined positions
+// Predefined UFMI positions
 const POSITIONS = [
+  'Chief Executive Officer',
   'Operations and Administrative Officer',
   'Accounting Officer',
-  'Licensing Officer',
-  'Chief Executive Officer',
-  'Copyright Inspector',
   'IT Officer',
   'Membership Officer',
-  'Asst. Accounting Officer',
   'Driver',
+  'Copyright Inspector',
+  'Licensing Officer',
 ]
 
 // GET /api/admin/employees - List all employees

@@ -19,10 +19,18 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return headers
 }
 
+// Auto-logout on 401 (expired/invalid token)
+function handleUnauthorized(status: number) {
+  if (status === 401) {
+    useAuthStore.getState().logout()
+  }
+}
+
 export async function apiGet<T = unknown>(url: string): Promise<T> {
   const headers = await getAuthHeaders()
   const response = await fetch(url, { headers, method: 'GET' })
   if (!response.ok) {
+    handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
     throw new ApiError(data.error || 'Request failed', response.status)
   }
@@ -33,6 +41,7 @@ export async function apiPost<T = unknown>(url: string, body: unknown): Promise<
   const headers = await getAuthHeaders()
   const response = await fetch(url, { headers, method: 'POST', body: JSON.stringify(body) })
   if (!response.ok) {
+    handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
     throw new ApiError(data.error || 'Request failed', response.status)
   }
@@ -43,6 +52,7 @@ export async function apiPut<T = unknown>(url: string, body: unknown): Promise<T
   const headers = await getAuthHeaders()
   const response = await fetch(url, { headers, method: 'PUT', body: JSON.stringify(body) })
   if (!response.ok) {
+    handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
     throw new ApiError(data.error || 'Request failed', response.status)
   }
@@ -53,6 +63,7 @@ export async function apiPatch<T = unknown>(url: string, body: unknown): Promise
   const headers = await getAuthHeaders()
   const response = await fetch(url, { headers, method: 'PATCH', body: JSON.stringify(body) })
   if (!response.ok) {
+    handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
     throw new ApiError(data.error || 'Request failed', response.status)
   }
@@ -63,6 +74,7 @@ export async function apiDelete(url: string): Promise<void> {
   const headers = await getAuthHeaders()
   const response = await fetch(url, { headers, method: 'DELETE' })
   if (!response.ok) {
+    handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
     throw new ApiError(data.error || 'Request failed', response.status)
   }

@@ -32,8 +32,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   isInitialized: false,
 
   login: (token: string, user: User) => {
-    // Token is only kept in memory (Zustand) — never persisted.
-    // Closing the browser or refreshing will always return to login.
+    // Persist token and user to localStorage so refresh keeps user logged in
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ufmi_token', token)
+      localStorage.setItem('ufmi_user', JSON.stringify(user))
+    }
     set({
       token,
       user,
@@ -43,8 +46,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    // Clean up any stale tokens from previous versions
-    localStorage.removeItem('token')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ufmi_token')
+      localStorage.removeItem('ufmi_user')
+    }
     set({
       token: null,
       user: null,
@@ -54,8 +59,42 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initialize: async () => {
-    // Always start at login — remove any cached tokens from previous versions
-    localStorage.removeItem('token')
+    if (typeof window === 'undefined') {
+      set({ isInitialized: true })
+      return
+    }
+
+    const token = localStorage.getItem('ufmi_token')
+    const userJson = localStorage.getItem('ufmi_user')
+
+    if (token && userJson) {
+      try {
+        const user = JSON.parse(userJson) as User
+        // Verify token is still valid by calling /api/auth/me
+        const res = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const freshUser = await res.json()
+          // Update stored user with fresh data from server
+          localStorage.setItem('ufmi_user', JSON.stringify(freshUser))
+          set({
+            token,
+            user: freshUser,
+            isAuthenticated: true,
+            isAdmin: freshUser.role === 'admin',
+            isInitialized: true,
+          })
+          return
+        }
+      } catch {
+        // Token invalid or expired — fall through to logout
+      }
+      // Clear stale data
+      localStorage.removeItem('ufmi_token')
+      localStorage.removeItem('ufmi_user')
+    }
+
     set({ isInitialized: true })
   },
 }))
