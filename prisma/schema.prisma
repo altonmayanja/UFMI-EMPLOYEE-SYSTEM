@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -27,16 +27,16 @@ model User {
 model MonthlyReport {
   id           String   @id @default(cuid())
   userId       String
-  month        String   // YYYY-MM format
-  reportData   String   // JSON - the full generated report
+  month        String // YYYY-MM format
+  reportData   String   @db.Text // JSON - the full generated report
 
   // Computed summary fields for quick display
   totalReports     Int
   totalActivities  Int
   submissionRate   Float
-  categoryBreakdown String // JSON
-  summary          String // Professional summary text
-  achievements     String // JSON array of achievement strings
+  categoryBreakdown String @db.Text // JSON
+  summary          String @db.Text // Professional summary text
+  achievements     String @db.Text // JSON array of achievement strings
 
   status       String   @default("draft") // "draft" | "generated" | "approved" | "archived"
   generatedBy  String?  // userId of admin who generated, or "self" for employee
@@ -74,12 +74,12 @@ model EmployeeProfile {
 model DailyReport {
   id           String   @id @default(cuid())
   userId       String
-  date         String   // YYYY-MM-DD format
-  activityText String
+  date         String // YYYY-MM-DD format
+  activityText String   @db.Text
   location     String?  // Where the activity was performed
   timeIn       String?  // HH:MM format - clock-in time
   timeOut      String?  // HH:MM format - clock-out time
-  comments     String?  // Additional comments or remarks
+  comments     String?  @db.Text // Additional comments or remarks
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -91,8 +91,8 @@ model DailyReport {
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  action    String   // "login", "report_created", "employee_created", "export", etc.
-  details   String?  // JSON string with additional details
+  action    String // "login", "report_created", "employee_created", "export", etc.
+  details   String?  @db.Text // JSON string with additional details
   ipAddress String?
   createdAt DateTime @default(now())
 
@@ -103,7 +103,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String?  // null = broadcast to all employees
   title     String
-  message   String
+  message   String   @db.Text
   type      String   @default("info") // "info" | "reminder" | "warning" | "success" | "announcement"
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -118,9 +118,9 @@ model Notification {
 model PasswordResetRequest {
   id        String   @id @default(cuid())
   userId    String?
-  username  String   // username of the requester (may not have account)
+  username  String // username of the requester (may not have account)
   status    String   @default("pending") // "pending" | "resolved" | "rejected"
-  message   String?  // optional message from the requester
+  message   String?  @db.Text // optional message from the requester
   resolvedBy String? // userId of admin who resolved it
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
