@@ -81,11 +81,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate position - allow predefined or custom positions
-    const trimmedPosition = position.trim()
-    if (!trimmedPosition || trimmedPosition.length < 2) {
+    // Validate position - must be one of the predefined UFMI positions
+    if (!POSITIONS.includes(position)) {
       return NextResponse.json(
-        { error: 'Position must be at least 2 characters' },
+        { error: `Invalid position. Must be one of: ${POSITIONS.join(', ')}` },
         { status: 400 }
       )
     }
@@ -121,7 +120,7 @@ export async function POST(request: NextRequest) {
         profile: {
           create: {
             employeeId,
-            position: trimmedPosition,
+            position,
           },
         },
       },
@@ -137,7 +136,7 @@ export async function POST(request: NextRequest) {
           targetUserId: user.id,
           username: user.username,
           employeeId,
-          position: trimmedPosition,
+          position,
         }),
       },
     })
