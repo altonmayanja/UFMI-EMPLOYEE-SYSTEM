@@ -53,3 +53,9 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Upload files (user screenshots, audio, etc.)
+/upload/
+
+# Worklog
+worklog.md
