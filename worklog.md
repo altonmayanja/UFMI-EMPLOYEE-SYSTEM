@@ -83,3 +83,22 @@ Stage Summary:
 - Time In and Time Out fields fully implemented across schema, API, and UI
 - Commit 96a59aa pushed to main
 - Dev server running and verified
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix friend cannot login - database connection broken
+
+Work Log:
+- Investigated login failure - found PrismaClientInitializationError
+- Root cause: schema.prisma had provider=postgresql but DATABASE_URL=file:/home/z/my-project/db/custom.db (SQLite)
+- This mismatch meant NO database queries could execute at all
+- Changed provider back to sqlite, removed @db.Text annotations
+- Regenerated Prisma client and synced schema with db push
+- Verified login works via production server test
+
+Stage Summary:
+- Fixed critical bug: database was completely inaccessible due to postgresql/sqlite mismatch
+- Login is now working again
+- All previous session data (employees added by friend) was stored in the Neon PostgreSQL on Vercel, not in local SQLite
+- Local database only has admin account
+---
