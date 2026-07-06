@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Square, X, Loader2, AlertTriangle, Info } from 'lucide-react'
+import { Mic, Square, X, Loader2, AlertTriangle, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useVoiceRecognition, type VoiceState } from '@/hooks/use-voice-recognition'
 
@@ -27,7 +27,7 @@ function RecordingPulse() {
   )
 }
 
-// Animated microphone icon using Material Symbols
+// Animated microphone icon using lucide-react
 function AnimatedMicIcon() {
   return (
     <motion.div
@@ -41,9 +41,7 @@ function AnimatedMicIcon() {
       }}
       className="inline-flex items-center justify-center"
     >
-      <span className="material-symbols-outlined text-red-500" style={{ fontSize: 22 }}>
-        mic
-      </span>
+      <Mic className="h-5 w-5 text-red-500" />
     </motion.div>
   )
 }
@@ -108,7 +106,7 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
           aria-label="Start voice recording"
           title="Record with voice"
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>mic</span>
+          <Mic className="h-5 w-5" />
         </button>
         <span className="text-xs text-gray-400">or speak your report</span>
       </div>
@@ -251,7 +249,7 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
           className="rounded-lg border-amber-200 text-amber-700 hover:bg-amber-100"
           aria-label="Try voice input again"
         >
-          <span className="material-symbols-outlined mr-1.5" style={{ fontSize: 16 }}>mic</span>
+          <Mic className="mr-1.5 h-4 w-4" />
           Try Again
         </Button>
         <Button

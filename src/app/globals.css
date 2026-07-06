@@ -181,12 +181,4 @@
   letter-spacing: 0.025em;
 }
 
-/* Material Symbols */
-.material-symbols-outlined {
-  font-variation-settings:
-    'FILL' 0,
-    'wght' 400,
-    'GRAD' 0,
-    'opsz' 24;
-  vertical-align: middle;
-}
+
