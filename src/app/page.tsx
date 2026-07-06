@@ -50,6 +50,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
+import { VoiceRecorder } from '@/components/voice-recorder'
 import {
   Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader, SheetDescription,
 } from '@/components/ui/sheet'
@@ -1813,9 +1814,12 @@ function EmployeeSubmitReport() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="activity" className="text-sm font-medium text-gray-700">
-              Detailed Activity Log
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="activity" className="text-sm font-medium text-gray-700">
+                Detailed Activity Log
+              </Label>
+              <span className="text-xs text-gray-400">{activityText.length}/2000 characters</span>
+            </div>
             <Textarea
               id="activity"
               placeholder="Describe your activities, accomplishments, and any blockers..."
@@ -1826,7 +1830,18 @@ function EmployeeSubmitReport() {
               disabled={!!existingReport}
               maxLength={2000}
             />
-            <p className="text-xs text-gray-400 text-right">{activityText.length}/2000 characters</p>
+            {!existingReport && (
+              <VoiceRecorder
+                onTranscript={(text) => {
+                  // Append to existing text or set if empty
+                  setActivityText((prev) => {
+                    const trimmed = prev.trim()
+                    if (!trimmed) return text
+                    return trimmed + ' ' + text
+                  })
+                }}
+              />
+            )}
           </div>
 
           {/* Time In / Time Out row */}
