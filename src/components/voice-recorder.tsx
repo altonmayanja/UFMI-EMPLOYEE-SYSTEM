@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Mic, MicOff, Square, X, Loader2, AlertTriangle, Info } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Square, X, Loader2, AlertTriangle, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useVoiceRecognition, type VoiceState } from '@/hooks/use-voice-recognition'
 
@@ -27,7 +27,7 @@ function RecordingPulse() {
   )
 }
 
-// Animated microphone icon
+// Animated microphone icon using Material Symbols
 function AnimatedMicIcon() {
   return (
     <motion.div
@@ -39,9 +39,11 @@ function AnimatedMicIcon() {
         repeat: Infinity,
         ease: 'easeInOut',
       }}
-      className="inline-flex"
+      className="inline-flex items-center justify-center"
     >
-      <Mic className="h-5 w-5 text-red-500" />
+      <span className="material-symbols-outlined text-red-500" style={{ fontSize: 22 }}>
+        mic
+      </span>
     </motion.div>
   )
 }
@@ -77,13 +79,12 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
   // Focus the stop button when recording starts for keyboard accessibility
   useEffect(() => {
     if (state === 'listening' && stopButtonRef.current) {
-      // Small delay to let animation settle
       const t = setTimeout(() => stopButtonRef.current?.focus(), 100)
       return () => clearTimeout(t)
     }
   }, [state])
 
-  // Don't render if unsupported and we haven't tried yet
+  // Don't render if unsupported
   if (!isSupported) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200" role="alert">
@@ -107,7 +108,7 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
           aria-label="Start voice recording"
           title="Record with voice"
         >
-          <Mic className="h-4 w-4" />
+          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>mic</span>
         </button>
         <span className="text-xs text-gray-400">or speak your report</span>
       </div>
@@ -250,7 +251,7 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
           className="rounded-lg border-amber-200 text-amber-700 hover:bg-amber-100"
           aria-label="Try voice input again"
         >
-          <Mic className="mr-1.5 h-3.5 w-3.5" />
+          <span className="material-symbols-outlined mr-1.5" style={{ fontSize: 16 }}>mic</span>
           Try Again
         </Button>
         <Button
