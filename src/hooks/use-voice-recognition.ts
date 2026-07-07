@@ -60,6 +60,9 @@ function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null
 }
 
+// Maximum consecutive no-speech errors before giving up
+const MAX_NO_SPEECH_RETRIES = 3
+
 export function useVoiceRecognition(onTranscript?: (text: string) => void): VoiceRecognitionResult {
   const [state, setState] = useState<VoiceState>('idle')
   const [transcript, setTranscript] = useState('')
@@ -71,6 +74,12 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
   const finalTranscriptRef = useRef('')
   const isStoppedRef = useRef(false)
   const onTranscriptRef = useRef(onTranscript)
+  // Track listening state with a ref for reliable access in callbacks
+  const isListeningRef = useRef(false)
+  // Track consecutive no-speech errors
+  const noSpeechCountRef = useRef(0)
+  // Track if we've received at least one speech result
+  const hasReceivedSpeechRef = useRef(false)
 
   // Keep the callback ref up to date
   useEffect(() => {
@@ -92,8 +101,7 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
     }, 1000)
   }, [clearTimer])
 
-  const cleanup = useCallback(() => {
-    clearTimer()
+  const stopRecognition = useCallback(() => {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort()
@@ -102,7 +110,13 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
       }
       recognitionRef.current = null
     }
-  }, [clearTimer])
+  }, [])
+
+  const cleanup = useCallback(() => {
+    clearTimer()
+    stopRecognition()
+    isListeningRef.current = false
+  }, [clearTimer, stopRecognition])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -137,6 +151,9 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
     setTranscript('')
     setError(null)
     isStoppedRef.current = false
+    isListeningRef.current = true
+    noSpeechCountRef.current = 0
+    hasReceivedSpeechRef.current = false
 
     recognition.onstart = () => {
       setState('listening')
@@ -144,6 +161,10 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
     }
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
+      // Reset no-speech counter when we get results
+      noSpeechCountRef.current = 0
+      hasReceivedSpeechRef.current = true
+
       let interim = ''
       let final = ''
 
@@ -162,53 +183,103 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
     }
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      clearTimer()
-
       switch (event.error) {
         case 'not-allowed':
         case 'permission-denied':
+          clearTimer()
+          isListeningRef.current = false
+          recognitionRef.current = null
           setState('permission_denied')
           setError('Microphone permission was denied. Please allow microphone access in your browser settings and try again.')
-          break
+          return
+
         case 'no-speech':
+          // Auto-restart on no-speech error (up to MAX_NO_SPEECH_RETRIES times)
+          noSpeechCountRef.current += 1
+          if (noSpeechCountRef.current < MAX_NO_SPEECH_RETRIES && !isStoppedRef.current) {
+            // Silently restart - don't show error, keep the timer running
+            try {
+              recognitionRef.current = null
+              const newRecognition = new SpeechRecognitionConstructor()
+              newRecognition.continuous = true
+              newRecognition.interimResults = true
+              newRecognition.lang = 'en-US'
+              newRecognition.onstart = () => {}
+              newRecognition.onresult = recognition.onresult
+              newRecognition.onerror = recognition.onerror
+              newRecognition.onend = recognition.onend
+              newRecognition.onspeechend = recognition.onspeechend
+              recognitionRef.current = newRecognition
+              newRecognition.start()
+              return
+            } catch {
+              // If restart fails, fall through to show error
+            }
+          }
+          // After max retries, show the error
+          clearTimer()
+          isListeningRef.current = false
+          recognitionRef.current = null
           setState('cancelled')
-          setError('No speech was detected. Please try again and speak clearly into your microphone.')
-          break
+          setError('No speech was detected. Please make sure your microphone is working and try again.')
+          return
+
         case 'audio-capture':
+          clearTimer()
+          isListeningRef.current = false
+          recognitionRef.current = null
           setState('cancelled')
           setError('No microphone was found. Please connect a microphone and try again.')
-          break
+          return
+
         case 'network':
+          clearTimer()
+          isListeningRef.current = false
+          recognitionRef.current = null
           setState('cancelled')
           setError('A network error occurred during voice recognition. Please check your connection and try again.')
-          break
+          return
+
         case 'aborted':
           // User cancelled, do nothing
-          break
+          return
+
         default:
+          clearTimer()
+          isListeningRef.current = false
+          recognitionRef.current = null
           setState('cancelled')
           setError(`Voice recognition failed: ${event.error}. Please try again.`)
-          break
+          return
       }
-
-      recognitionRef.current = null
     }
 
     recognition.onend = () => {
-      clearTimer()
+      recognitionRef.current = null
 
       // If we didn't explicitly stop, the recognition may have ended unexpectedly
-      if (!isStoppedRef.current) {
-        // Auto-restart if we're still in listening state (continuous recognition may stop)
-        if (state === 'listening') {
-          try {
-            recognition.start()
-            return
-          } catch {
-            // Failed to restart
-          }
+      if (!isStoppedRef.current && isListeningRef.current) {
+        // Auto-restart if we're still supposed to be listening
+        try {
+          const newRecognition = new SpeechRecognitionConstructor()
+          newRecognition.continuous = true
+          newRecognition.interimResults = true
+          newRecognition.lang = 'en-US'
+          newRecognition.onstart = () => {}
+          newRecognition.onresult = recognition.onresult
+          newRecognition.onerror = recognition.onerror
+          newRecognition.onend = recognition.onend
+          newRecognition.onspeechend = recognition.onspeechend
+          recognitionRef.current = newRecognition
+          newRecognition.start()
+          return
+        } catch {
+          // Failed to restart, finalize
         }
       }
+
+      clearTimer()
+      isListeningRef.current = false
 
       // When explicitly stopped, finalize
       if (isStoppedRef.current) {
@@ -221,7 +292,6 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
           setState('cancelled')
           setError('No speech was detected. Please try again and speak clearly into your microphone.')
         }
-        recognitionRef.current = null
       }
     }
 
@@ -234,14 +304,16 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
     try {
       recognition.start()
     } catch (err) {
+      isListeningRef.current = false
       setState('cancelled')
       setError('Failed to start voice recognition. Please try again.')
       recognitionRef.current = null
     }
-  }, [cleanup, clearTimer, startTimer, state])
+  }, [cleanup, clearTimer, startTimer])
 
   const stop = useCallback(() => {
     isStoppedRef.current = true
+    isListeningRef.current = false
     clearTimer()
 
     if (recognitionRef.current) {
@@ -272,6 +344,7 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
 
   const cancel = useCallback(() => {
     isStoppedRef.current = true
+    isListeningRef.current = false
     cleanup()
     setState('cancelled')
     setTranscript('')
@@ -280,12 +353,16 @@ export function useVoiceRecognition(onTranscript?: (text: string) => void): Voic
   }, [cleanup])
 
   const reset = useCallback(() => {
+    isStoppedRef.current = false
+    isListeningRef.current = false
     cleanup()
     setState('idle')
     setTranscript('')
     setElapsedTime(0)
     setError(null)
     finalTranscriptRef.current = ''
+    noSpeechCountRef.current = 0
+    hasReceivedSpeechRef.current = false
   }, [cleanup])
 
   return {

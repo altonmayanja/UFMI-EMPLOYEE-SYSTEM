@@ -134,7 +134,7 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
                 Recording
                 <RecordingPulse />
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">Speak clearly into your microphone...</p>
+              <p className="text-xs text-gray-500 mt-0.5">Listening... start speaking now</p>
             </div>
           </div>
           <span className="text-lg font-mono font-bold text-red-600 tabular-nums" aria-label={`Recording time: ${formatTime(elapsedTime)}`}>
