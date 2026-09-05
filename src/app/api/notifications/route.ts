@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth'
+import { getTenantContext } from '@/lib/tenant'
 import { Prisma } from '@prisma/client'
 
 // GET /api/notifications - List notifications for the current user
@@ -8,6 +9,8 @@ export async function GET(request: NextRequest) {
   try {
     const payload = await authenticateRequest(request)
     if (!payload) return unauthorizedResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return unauthorizedResponse('Active organization membership required')
 
     const { searchParams } = new URL(request.url)
     const unreadOnly = searchParams.get('unread') === 'true'

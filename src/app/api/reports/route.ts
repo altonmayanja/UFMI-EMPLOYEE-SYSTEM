@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyToken, getTokenFromRequest } from '@/lib/auth'
+import { getTenantContext } from '@/lib/tenant'
 
 // Helper: authenticate request and return user payload
 export async function authenticateRequest(request: NextRequest) {
@@ -20,6 +21,9 @@ export async function GET(request: NextRequest) {
     if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return NextResponse.json({ error: 'Active organization membership required' }, { status: 403 })
 
     const { searchParams } = new URL(request.url)
     const month = searchParams.get('month') // YYYY-MM format
@@ -54,6 +58,9 @@ export async function POST(request: NextRequest) {
     if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return NextResponse.json({ error: 'Active organization membership required' }, { status: 403 })
 
     const body = await request.json()
     const { date, activityText, location, timeIn, timeOut, comments } = body
