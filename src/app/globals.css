@@ -93,10 +93,17 @@
     @apply border-border outline-ring/50;
     box-sizing: border-box;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   html, body {
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   }
   body {
     @apply bg-ufmi-bg text-foreground font-sans;
