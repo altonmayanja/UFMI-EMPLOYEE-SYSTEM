@@ -30,18 +30,12 @@ export async function POST(request: NextRequest) {
           },
         })
 
-    if (!organization || organization.status === 'suspended' || organization.status === 'archived') {
-      return NextResponse.json({ error: 'Organization not found or unavailable.' }, { status: 403 })
+    if (!organization || !['active', 'trial', 'grace'].includes(organization.status)) {
+      return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
     }
 
-    const user = await db.user.findFirst({
-      where: {
-        username,
-        OR: [
-          { organizationId: organization.id },
-          { memberships: { some: { organizationId: organization.id, status: 'active' } } },
-        ],
-      },
+    const user = await db.user.findUnique({
+      where: { username },
       include: { profile: true, memberships: { where: { status: 'active' }, include: { organization: true } } },
     })
 
@@ -54,8 +48,9 @@ export async function POST(request: NextRequest) {
     }
 
     const membership = user.memberships.find((item) => item.organizationId === organization.id)
-    if (membership && membership.organization.status !== 'active' && membership.organization.status !== 'trial' && membership.organization.status !== 'grace') {
-      return NextResponse.json({ error: 'Organization access is unavailable.' }, { status: 403 })
+    const isLegacyOrganizationUser = organization.organizationType === 'LEGACY' && user.organizationId === organization.id
+    if (!membership && !isLegacyOrganizationUser) {
+      return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
     }
 
     const isValid = await verifyPassword(password, user.passwordHash)
@@ -75,14 +70,18 @@ export async function POST(request: NextRequest) {
       organizationRole: membership?.role,
     })
 
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'login',
-        details: JSON.stringify({ username: user.username }),
-      },
-    })
+    // Audit failures must not turn a successful authentication into a 500 response.
+    try {
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'login',
+          details: JSON.stringify({ organizationId: organization.id }),
+        },
+      })
+    } catch (auditError) {
+      console.error('Login audit event failed:', auditError)
+    }
 
     return NextResponse.json({
       token,
@@ -103,6 +102,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Login error:', error)
+    if (error instanceof Error && error.name === 'PrismaClientInitializationError') {
+      return NextResponse.json(
+        { error: 'Authentication service is not configured. Please contact support.' },
+        { status: 503 }
+      )
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

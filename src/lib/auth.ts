@@ -1,11 +1,13 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { NextRequest, NextResponse } from 'next/server'
 
-const configuredSecret = process.env.JWT_SECRET
-if (!configuredSecret && process.env.NODE_ENV === 'production') {
-  throw new Error('JWT_SECRET must be configured in production')
+function getJwtSecret() {
+  const configuredSecret = process.env.JWT_SECRET
+  if (!configuredSecret) {
+    throw new Error('JWT_SECRET must be configured before authentication is used')
+  }
+  return new TextEncoder().encode(configuredSecret)
 }
-const JWT_SECRET = new TextEncoder().encode(configuredSecret || 'development-only-secret')
 
 export interface JWTPayload {
   userId: string
@@ -21,12 +23,12 @@ export async function signToken(payload: JWTPayload): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(JWT_SECRET)
+    .sign(getJwtSecret())
 }
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const { payload } = await jwtVerify(token, getJwtSecret())
     return {
       userId: payload.userId as string,
       username: payload.username as string,
