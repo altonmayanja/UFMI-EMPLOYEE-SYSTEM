@@ -123,6 +123,7 @@ model Organization {
   name            String
   slug            String   @unique
   status          String   @default("trial")
+  organizationType String  @default("STANDARD") // STANDARD | LEGACY
   timezone        String   @default("Africa/Kampala")
   trialStartedAt  DateTime?
   trialEndsAt     DateTime?

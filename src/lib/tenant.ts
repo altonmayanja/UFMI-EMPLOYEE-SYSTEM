@@ -11,11 +11,15 @@ export async function getTenantContext(payload: JWTPayload | null): Promise<Tena
   if (!payload) return null
   const user = await db.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, username: true, role: true, status: true, organizationId: true, memberships: { where: { status: 'active' }, select: { organizationId: true, role: true }, take: 1 } },
+    select: { id: true, username: true, role: true, status: true, memberships: { where: { status: 'active' }, select: { id: true, organizationId: true, role: true, organization: { select: { status: true, organizationType: true } } } } },
   })
-  const membership = user?.memberships[0]
-  if (!user || user.status !== 'active' || !membership) return null
-  return { ...payload, organizationId: membership.organizationId, organizationRole: membership.role }
+  if (!user || user.status !== 'active') return null
+  const membership = payload.organizationId
+    ? user.memberships.find((item) => item.organizationId === payload.organizationId)
+    : user.memberships.length === 1 ? user.memberships[0] : undefined
+  if (!membership) return null
+  if (membership.organization.status === 'suspended' || membership.organization.status === 'archived') return null
+  return { ...payload, organizationId: membership.organizationId, membershipId: membership.id, organizationRole: membership.role }
 }
 
 export async function requireTenant(payload: JWTPayload | null) {

@@ -20,7 +20,7 @@ export async function createOrganization(input: { name: string; slug: string; ow
 
 export async function syncOrganizationLifecycle(organizationId: string) {
   const organization = await db.organization.findUnique({ where: { id: organizationId }, include: { subscription: true } })
-  if (!organization || organization.status === 'archived') return organization
+  if (!organization || organization.status === 'archived' || organization.organizationType === 'LEGACY') return organization
   const now = new Date()
   if (organization.status === 'trial' && organization.trialEndsAt && now > organization.trialEndsAt) {
     const graceEndsAt = new Date(organization.trialEndsAt)

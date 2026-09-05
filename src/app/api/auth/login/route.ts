@@ -7,7 +7,7 @@ import { signToken } from '@/lib/auth'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { username, password } = body
+    const { username, password, organizationId: requestedOrganizationId } = body
 
     if (!username || !password) {
       return NextResponse.json(
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     const user = await db.user.findUnique({
       where: { username },
-      include: { profile: true },
+      include: { profile: true, memberships: { where: { status: 'active' }, include: { organization: true } } },
     })
 
     if (!user) {
@@ -35,6 +35,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const membership = requestedOrganizationId
+      ? user.memberships.find((item) => item.organizationId === requestedOrganizationId)
+      : user.memberships.length === 1 ? user.memberships[0] : undefined
+    if (user.memberships.length > 1 && !membership) {
+      return NextResponse.json({ error: 'Organization selection is required', organizations: user.memberships.map((item) => ({ id: item.organizationId, name: item.organization.name, slug: item.organization.slug })) }, { status: 409 })
+    }
+
     const isValid = await verifyPassword(password, user.passwordHash)
     if (!isValid) {
       return NextResponse.json(
@@ -46,7 +53,10 @@ export async function POST(request: NextRequest) {
     const token = await signToken({
       userId: user.id,
       username: user.username,
-      role: user.role as 'admin' | 'employee',
+      role: user.role as 'admin' | 'employee' | 'super_admin',
+      organizationId: membership?.organizationId ?? user.organizationId ?? undefined,
+      membershipId: membership?.id,
+      organizationRole: membership?.role,
     })
 
     // Create audit log

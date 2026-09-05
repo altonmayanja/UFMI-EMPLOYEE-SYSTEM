@@ -11,6 +11,9 @@ export interface JWTPayload {
   userId: string
   username: string
   role: 'admin' | 'employee' | 'super_admin'
+  organizationId?: string
+  membershipId?: string
+  organizationRole?: string
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {
@@ -27,7 +30,10 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
     return {
       userId: payload.userId as string,
       username: payload.username as string,
-      role: payload.role as 'admin' | 'employee',
+      role: payload.role as 'admin' | 'employee' | 'super_admin',
+      organizationId: payload.organizationId as string | undefined,
+      membershipId: payload.membershipId as string | undefined,
+      organizationRole: payload.organizationRole as string | undefined,
     }
   } catch {
     return null
