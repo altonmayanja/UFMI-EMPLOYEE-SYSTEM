@@ -10,10 +10,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "UFMI Portal - Operations Dashboard",
-  description: "Uganda Federation of Movie Industry Operations Portal. Submit, track, and manage daily work reports.",
-  keywords: ["UFMI", "daily report", "employee management", "operations portal", "Uganda Federation of Movie Industry"],
-  authors: [{ name: "Uganda Federation of Movie Industry" }],
+  title: "Natural Intellects | Employee Reporting & Workforce Management",
+  description: "Natural Intellects helps organizations capture daily work, understand workforce activity, and manage reporting with confidence.",
+  keywords: ["Natural Intellects", "employee reporting", "workforce management", "daily work reports", "team operations"],
+  authors: [{ name: "Natural Intellects Ltd" }],
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
