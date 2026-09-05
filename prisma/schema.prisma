@@ -9,6 +9,9 @@ datasource db {
 
 model User {
   id           String   @id @default(cuid())
+  organizationId String?
+  memberships   OrganizationMember[]
+  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   username     String   @unique
   passwordHash String
   role         String   @default("employee") // "admin" | "employee"
@@ -113,6 +116,105 @@ model Notification {
   @@index([userId])
   @@index([read])
   @@index([createdAt])
+}
+
+model Organization {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  status          String   @default("trial")
+  timezone        String   @default("Africa/Kampala")
+  trialStartedAt  DateTime?
+  trialEndsAt     DateTime?
+  graceEndsAt     DateTime?
+  suspendedAt     DateTime?
+  archivedAt      DateTime?
+  deletionScheduledAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users           User[]
+  members         OrganizationMember[]
+  settings        OrganizationSettings?
+  subscription    Subscription?
+  auditEvents     AuditEvent[]
+
+  @@index([status])
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String   @default("member")
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model OrganizationSettings {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  reportDeadline String   @default("16:00")
+  reminderEnabled Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  name            String
+  monthlyPrice    Int      @default(0)
+  maxEmployees    Int?
+  entitlements    String   @db.Text
+  active          Boolean  @default(true)
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  organizationId       String   @unique
+  planId               String
+  status               String   @default("trialing")
+  provider             String?
+  providerCustomerId   String?
+  providerSubscriptionId String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+
+  @@index([status])
+  @@index([providerSubscriptionId])
+}
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  action         String
+  entityType     String?
+  entityId       String?
+  metadata       String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, action])
 }
 
 model PasswordResetRequest {

@@ -1,9 +1,11 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { NextRequest, NextResponse } from 'next/server'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'daily-report-system-secret-key-change-in-production'
-)
+const configuredSecret = process.env.JWT_SECRET
+if (!configuredSecret && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET must be configured in production')
+}
+const JWT_SECRET = new TextEncoder().encode(configuredSecret || 'development-only-secret')
 
 export interface JWTPayload {
   userId: string

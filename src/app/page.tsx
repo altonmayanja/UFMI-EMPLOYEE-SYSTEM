@@ -263,7 +263,7 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             </h3>
             <div className="space-y-1.5 text-xs text-gray-500">
               <p><span className="font-medium text-gray-700">Version:</span> 2.1.0</p>
-              <p><span className="font-medium text-gray-700">Platform:</span> UFMI Operations Portal</p>
+              <p><span className="font-medium text-gray-700">Platform:</span> Natural Intellects Operations Portal</p>
               <p><span className="font-medium text-gray-700">Last Updated:</span> June 2025</p>
             </div>
           </div>
@@ -321,7 +321,7 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
           {/* Header section with branding */}
           <div className="px-8 pt-10 pb-6 text-center" style={{ background: 'linear-gradient(180deg, #f8f9fc 0%, #ffffff 100%)' }}>
             <div className="mx-auto w-16 h-16 rounded-2xl overflow-hidden mb-5 shadow-lg">
-              <Image src="/logo.png" alt="UFMI Logo" width={64} height={64} className="w-full h-full object-contain" />
+              <Image src="/logo.png" alt="Natural Intellects logo" width={64} height={64} className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('login.title')}</h1>
             <p className="text-sm text-gray-500 mt-1">{t('login.subtitle')}</p>
@@ -596,7 +596,7 @@ function Sidebar({
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10 shrink-0">
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
-          <Image src="/logo.png" alt="UFMI Logo" width={36} height={36} className="w-full h-full object-contain" />
+          <Image src="/logo.png" alt="Natural Intellects logo" width={36} height={36} className="w-full h-full object-contain" />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
@@ -741,7 +741,7 @@ function MobileSidebar({
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10">
           <div className="w-9 h-9 rounded-xl overflow-hidden">
-            <Image src="/logo.png" alt="UFMI Logo" width={36} height={36} className="w-full h-full object-contain" />
+            <Image src="/logo.png" alt="Natural Intellects logo" width={36} height={36} className="w-full h-full object-contain" />
           </div>
           <div>
             <h1 className="text-sm font-bold text-white leading-none">{t('sidebar.portal')}</h1>
@@ -889,7 +889,7 @@ function TopHeader({
         {/* Breadcrumb / Title */}
         <div className="hidden lg:block">
           <p className="text-xs text-gray-400">Portal</p>
-          <p className="text-sm font-semibold text-gray-900">UFMI Portal</p>
+          <p className="text-sm font-semibold text-gray-900">Natural Intellects</p>
         </div>
 
         {/* Search */}
@@ -1316,7 +1316,7 @@ function AdminOverview() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Operational Overview</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Live metrics for the Uganda Federation of Movie Industry</p>
+          <p className="text-sm text-gray-500 mt-0.5">Live metrics for the Operations intelligence for growing organizations</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -4057,7 +4057,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0B1F6D' }}>
         <div className="flex flex-col items-center gap-3">
           <div className="w-12 h-12 rounded-2xl overflow-hidden animate-pulse">
-            <Image src="/logo.png" alt="UFMI Logo" width={48} height={48} className="w-full h-full object-contain" />
+            <Image src="/logo.png" alt="Natural Intellects logo" width={48} height={48} className="w-full h-full object-contain" />
           </div>
           <p className="text-sm text-blue-200/50">Loading...</p>
         </div>
@@ -4149,8 +4149,8 @@ export default function Home() {
           {/* Footer */}
           <footer className="mt-auto border-t border-gray-200/80 bg-white px-4 lg:px-6 py-3">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
-              <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Uganda Federation of Movie Industry. All rights reserved.</p>
-              <p className="text-xs text-gray-400 hidden sm:block">Uganda Federation of Movie Industry Portal</p>
+              <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Operations intelligence for growing organizations. All rights reserved.</p>
+              <p className="text-xs text-gray-400 hidden sm:block">Operations intelligence for growing organizations Portal</p>
             </div>
           </footer>
         </div>

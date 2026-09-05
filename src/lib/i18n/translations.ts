@@ -25,10 +25,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'login.signingIn': 'Signing in...',
     'login.forgotPassword': 'Forgot Password?',
     'login.helpCenter': 'Help Center',
-    'login.welcome': 'Welcome to UFMI Portal!',
+    'login.welcome': 'Welcome to Natural Intellects!',
     'login.error': 'Something went wrong. Please try again.',
     'login.encrypted': 'END-TO-END ENCRYPTED GATEWAY',
-    'login.copyright': 'Uganda Federation of Movie Industry. All rights reserved.',
+    'login.copyright': 'Natural Intellects. All rights reserved.',
 
     // Forgot Password
     'forgot.title': 'Forgot Password?',
