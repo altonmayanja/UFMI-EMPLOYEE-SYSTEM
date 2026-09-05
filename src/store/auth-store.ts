@@ -8,8 +8,11 @@ export interface UserProfile {
 export interface User {
   id: string
   username: string
-  role: 'admin' | 'employee'
+  role: 'admin' | 'employee' | 'super_admin'
   status: string
+  organizationId?: string
+  membershipId?: string
+  organizationRole?: string
   profile: UserProfile | null
 }
 
