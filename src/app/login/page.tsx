@@ -1,7 +1,6 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowRight, Building2, Eye, EyeOff, Loader2, LockKeyhole, UserRound } from 'lucide-react'
 import { useAuthStore, type User } from '@/store/auth-store'
@@ -51,27 +50,8 @@ export default function CommercialLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#080a0a] text-[#f4f1e8]">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col lg:flex-row">
-        <section className="flex flex-1 flex-col justify-between px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
-          <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Natural Intellects Ltd" width={42} height={42} className="h-10 w-10 rounded-full object-cover" />
-            <div>
-              <p className="font-serif text-lg leading-none">Natural Intellects</p>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.24em] text-[#b8b2a3]">Employee systems</p>
-            </div>
-          </div>
-
-          <div className="max-w-xl py-14 lg:py-0">
-            <p className="mb-5 font-mono text-xs uppercase tracking-[0.28em] text-[#ef4b3f]">Secure workspace access</p>
-            <h1 className="max-w-lg font-serif text-4xl leading-[1.05] sm:text-6xl">Your organization&apos;s work, in one clear place.</h1>
-            <p className="mt-6 max-w-md text-sm leading-7 text-[#b8b2a3] sm:text-base">Employee reporting and workforce management for teams that value reliable records, clear accountability, and better decisions.</p>
-          </div>
-
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6f756f]">Natural Intellects Ltd · Tech Over Ni</p>
-        </section>
-
-        <section className="flex w-full items-center bg-[#f4f1e8] px-6 py-10 text-[#161a18] sm:px-10 lg:max-w-[500px] lg:px-14">
+    <main className="flex min-h-screen items-center justify-center bg-[#080a0a] px-4 py-6 text-[#f4f1e8] sm:px-6 sm:py-10">
+      <section className="w-full max-w-lg bg-[#f4f1e8] px-5 py-8 text-[#161a18] sm:px-10 sm:py-10">
           <div className="w-full">
             <div className="mb-8">
               <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-[#161a18] text-[#f4f1e8]">
@@ -136,8 +116,7 @@ export default function CommercialLoginPage() {
 
             <p className="mt-6 text-center text-xs leading-5 text-[#69706a]">Need access or forgot your password? Contact your organization administrator.</p>
           </div>
-        </section>
-      </div>
+      </section>
     </main>
   )
 }
