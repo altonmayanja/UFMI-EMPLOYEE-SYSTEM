@@ -2,9 +2,11 @@ import { useAuthStore } from '@/store/auth-store'
 
 class ApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  data: unknown
+  constructor(message: string, status: number, data?: unknown) {
     super(message)
     this.status = status
+    this.data = data
   }
 }
 
@@ -32,7 +34,7 @@ export async function apiGet<T = unknown>(url: string): Promise<T> {
   if (!response.ok) {
     handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
-    throw new ApiError(data.error || 'Request failed', response.status)
+    throw new ApiError(data.error || 'Request failed', response.status, data)
   }
   return response.json()
 }
@@ -43,7 +45,7 @@ export async function apiPost<T = unknown>(url: string, body: unknown): Promise<
   if (!response.ok) {
     handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
-    throw new ApiError(data.error || 'Request failed', response.status)
+    throw new ApiError(data.error || 'Request failed', response.status, data)
   }
   return response.json()
 }
@@ -54,7 +56,7 @@ export async function apiPut<T = unknown>(url: string, body: unknown): Promise<T
   if (!response.ok) {
     handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
-    throw new ApiError(data.error || 'Request failed', response.status)
+    throw new ApiError(data.error || 'Request failed', response.status, data)
   }
   return response.json()
 }
@@ -65,7 +67,7 @@ export async function apiPatch<T = unknown>(url: string, body: unknown): Promise
   if (!response.ok) {
     handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
-    throw new ApiError(data.error || 'Request failed', response.status)
+    throw new ApiError(data.error || 'Request failed', response.status, data)
   }
   return response.json()
 }
@@ -76,7 +78,7 @@ export async function apiDelete(url: string): Promise<void> {
   if (!response.ok) {
     handleUnauthorized(response.status)
     const data = await response.json().catch(() => ({ error: 'Request failed' }))
-    throw new ApiError(data.error || 'Request failed', response.status)
+    throw new ApiError(data.error || 'Request failed', response.status, data)
   }
 }
 

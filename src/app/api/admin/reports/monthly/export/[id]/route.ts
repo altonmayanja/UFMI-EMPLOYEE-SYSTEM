@@ -175,7 +175,7 @@ export async function GET(
       }
     })
 
-    // ══════════════════════════════════════════════════════════════
+    // ═══════���══════════════════════════════════════════════════════
     // SHEET 4: ACHIEVEMENTS
     // ══════════════════════════════════════════════════════════════
     const s4 = wb.addWorksheet('Achievements')
@@ -230,7 +230,7 @@ export async function GET(
 
     const filename = `UFMI-Monthly-Report-${info.employeeId}-${info.reportingMonth}-Admin-Export.xlsx`
 
-    return new NextResponse(buffer as Buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${filename}"`,

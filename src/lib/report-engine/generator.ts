@@ -215,7 +215,7 @@ function generateActivityTimeline(data: ProcessedReportData): MonthlyReportOutpu
     }
     grouped[a.date].activities.push(a.activityText)
     if (a.primaryCategory && !grouped[a.date].primaryCategory) {
-      grouped[a.date].primaryCategory = a.primaryCategory.categoryName
+      grouped[a.date].primaryCategory = a.primaryCategory.name
     }
   }
 

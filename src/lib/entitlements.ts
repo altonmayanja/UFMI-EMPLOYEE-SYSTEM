@@ -8,7 +8,10 @@ export const DEFAULT_PLANS = [
 ] as const
 
 export async function ensureDefaultPlans() {
-  await Promise.all(DEFAULT_PLANS.map((plan) => db.plan.upsert({ where: { key: plan.key }, update: plan, create: plan })))
+  await Promise.all(DEFAULT_PLANS.map((plan) => {
+    const data = { ...plan, entitlements: JSON.stringify(plan.entitlements) }
+    return db.plan.upsert({ where: { key: plan.key }, update: data, create: data })
+  }))
 }
 
 export async function getOrganizationEntitlements(organizationId: string) {

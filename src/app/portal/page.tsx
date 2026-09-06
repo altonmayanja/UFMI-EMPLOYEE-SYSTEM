@@ -3318,8 +3318,8 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
                   return (
                   <div key={i}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-gray-700">{c.category || 'Unknown'}</span>
-                      <span className="text-xs text-gray-400">{c.count} activities ({c.percentage}%)</span>
+                      <span className="text-xs font-medium text-gray-700">{String(c.category || 'Unknown')}</span>
+                      <span className="text-xs text-gray-400">{String(c.count ?? 0)} activities ({String(c.percentage ?? 0)}%)</span>
                     </div>
                     <div className="w-full bg-blue-100 rounded-full h-2">
                       <div className="h-2 rounded-full bg-[#0B1F6D] transition-all" style={{ width: `${Math.min(Number(c.percentage) || 0, 100)}%` }} />
@@ -3361,7 +3361,7 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
                     return (
                     <div key={i} className="flex items-start gap-3 pb-2 border-b border-gray-100 last:border-0">
                       <div className="w-20 shrink-0">
-                        <p className="text-xs font-medium text-gray-500">{e.dateLabel || ''}</p>
+                        <p className="text-xs font-medium text-gray-500">{String(e.dateLabel || '')}</p>
                       </div>
                       <div className="flex-1 min-w-0">
                         {activities.slice(0, 2).map((act: unknown, j: number) => (
@@ -3371,7 +3371,7 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
                           <p className="text-[10px] text-gray-400">+{activities.length - 2} more</p>
                         )}
                       </div>
-                      <Badge variant="outline" className="text-[10px] px-1.5 shrink-0">{e.primaryCategory || ''}</Badge>
+                      <Badge variant="outline" className="text-[10px] px-1.5 shrink-0">{String(e.primaryCategory || '')}</Badge>
                     </div>
                     )
                   })}
