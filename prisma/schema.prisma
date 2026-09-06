@@ -220,6 +220,142 @@ model AuditEvent {
   @@index([organizationId, action])
 }
 
+model SaaSOrganization {
+  id                   String                    @id @default(uuid()) @map("id") @db.Uuid
+  name                 String
+  slug                 String                    @unique
+  status               String                   @default("trial")
+  trialStartedAt       DateTime                 @default(now()) @map("trial_started_at")
+  trialEndsAt          DateTime                 @default(dbgenerated("now() + interval '14 days'")) @map("trial_ends_at")
+  graceEndsAt          DateTime?                @map("grace_ends_at")
+  deletionRequestedAt  DateTime?                @map("deletion_requested_at")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+  memberships          SaaSOrganizationMembership[]
+  subscriptions        SaaSSubscription[]
+  billingEvents        SaaSBillingEvent[]
+  auditLogs            SaaSAuditLog[]
+  usageEvents          SaaSUsageEvent[]
+  deletionRequests     SaaSDeletionRequest[]
+
+  @@map("organizations")
+}
+
+model SaaSOrganizationMembership {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  userId         String           @map("user_id")
+  role           String           @default("member")
+  status         String           @default("active")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  organization   SaaSOrganization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@map("organization_memberships")
+}
+
+model SaaSPlan {
+  id                 String            @id @default(uuid()) @db.Uuid
+  code               String            @unique
+  name               String
+  monthlyPriceCents  Int               @default(0) @map("monthly_price_cents")
+  annualPriceCents   Int               @default(0) @map("annual_price_cents")
+  maxMembers         Int?              @map("max_members")
+  maxReportsPerMonth Int?              @map("max_reports_per_month")
+  features           Json              @default("{}")
+  isActive           Boolean           @default(true) @map("is_active")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  subscriptions      SaaSSubscription[]
+
+  @@map("plans")
+}
+
+model SaaSSubscription {
+  id                    String          @id @default(uuid()) @db.Uuid
+  organizationId        String          @unique @map("organization_id") @db.Uuid
+  planId                String          @map("plan_id") @db.Uuid
+  status                String          @default("trialing")
+  billingInterval       String          @default("monthly") @map("billing_interval")
+  provider              String          @default("manual")
+  providerCustomerId    String?         @map("provider_customer_id")
+  providerSubscriptionId String?        @map("provider_subscription_id")
+  currentPeriodStart    DateTime?       @map("current_period_start")
+  currentPeriodEnd      DateTime?       @map("current_period_end")
+  trialEndsAt           DateTime?       @map("trial_ends_at")
+  canceledAt            DateTime?       @map("canceled_at")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+  organization          SaaSOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                  SaaSPlan        @relation(fields: [planId], references: [id])
+
+  @@index([status, currentPeriodEnd])
+  @@map("subscriptions")
+}
+
+model SaaSBillingEvent {
+  id                String           @id @default(uuid()) @db.Uuid
+  provider          String
+  providerEventId   String           @map("provider_event_id")
+  organizationId    String?          @map("organization_id") @db.Uuid
+  eventType         String           @map("event_type")
+  payload           Json             @default("{}")
+  processedAt       DateTime?        @map("processed_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  organization      SaaSOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([organizationId, createdAt])
+  @@map("billing_events")
+}
+
+model SaaSAuditLog {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String?          @map("organization_id") @db.Uuid
+  actorUserId    String?          @map("actor_user_id")
+  action         String
+  resourceType   String           @map("resource_type")
+  resourceId     String?          @map("resource_id")
+  metadata       Json             @default("{}")
+  ipAddress      String?          @map("ip_address") @db.Inet
+  createdAt      DateTime         @default(now()) @map("created_at")
+  organization   SaaSOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}
+
+model SaaSUsageEvent {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  userId         String?          @map("user_id")
+  eventType      String           @map("event_type")
+  quantity       Int              @default(1)
+  occurredAt     DateTime         @default(now()) @map("occurred_at")
+  metadata       Json             @default("{}")
+  organization   SaaSOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, occurredAt])
+  @@map("usage_events")
+}
+
+model SaaSDeletionRequest {
+  id                  String           @id @default(uuid()) @db.Uuid
+  organizationId      String           @map("organization_id") @db.Uuid
+  requestedByUserId   String           @map("requested_by_user_id")
+  status              String           @default("pending")
+  scheduledFor        DateTime         @map("scheduled_for")
+  cancelledAt         DateTime?        @map("cancelled_at")
+  completedAt         DateTime?        @map("completed_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  organization        SaaSOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@map("deletion_requests")
+}
+
 model PasswordResetRequest {
   id        String   @id @default(cuid())
   userId    String?
