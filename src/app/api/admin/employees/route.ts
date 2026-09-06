@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { verifyToken, getTokenFromRequest } from '@/lib/auth'
 import { hashPassword } from '@/lib/password'
 import { requireOrganizationAdmin } from '@/lib/tenant'
+import { canAddEmployee, getEmployeeLimit } from '@/lib/entitlements'
 
 // Helper: authenticate admin
 async function authenticateAdmin(request: NextRequest) {
@@ -73,6 +74,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { username, password, employeeId, position } = body
+
+    const canAdd = await canAddEmployee(context.organizationId)
+    if (!canAdd) {
+      const limit = await getEmployeeLimit(context.organizationId)
+      return NextResponse.json({ error: `Employee limit reached for this plan (${limit}). Upgrade your plan to add another employee.` }, { status: 409 })
+    }
 
     // Validate required fields
     if (!username || !password || !employeeId || !position) {

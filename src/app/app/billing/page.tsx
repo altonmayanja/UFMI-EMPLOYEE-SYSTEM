@@ -30,6 +30,13 @@ export default function BillingPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  async function requestCancellation() {
+    const response = await fetch('/api/billing', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel' }) })
+    const result = await response.json()
+    setMessage(result.error ?? 'Cancellation scheduled for the end of the current billing period')
+    if (response.ok) setData((current) => current ? { ...current, subscription: current.subscription ? { ...current.subscription, cancelAtPeriodEnd: true } : null } : current)
+  }
+
   async function requestCheckout() {
     if (!data?.subscription) return
     const response = await fetch('/api/billing', {
@@ -70,7 +77,8 @@ export default function BillingPage() {
               </div>
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
-              <button onClick={requestCheckout} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#ed1c24] px-5 text-sm font-semibold transition hover:bg-[#ff3038]"> <CreditCard className="h-4 w-4" /> Manage plan</button>
+              <button onClick={requestCheckout} disabled={data.subscription.cancelAtPeriodEnd} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#ed1c24] px-5 text-sm font-semibold transition hover:bg-[#ff3038] disabled:cursor-not-allowed disabled:opacity-50"> <CreditCard className="h-4 w-4" /> Manage plan</button>
+              {data.subscription.status === 'active' && !data.subscription.cancelAtPeriodEnd && <button onClick={requestCancellation} className="inline-flex min-h-11 items-center rounded-lg border border-white/15 px-4 text-sm font-medium text-white/75 transition hover:border-white/30 hover:text-white">Cancel at period end</button>}
               <span className="inline-flex items-center gap-2 text-xs text-white/45"><LockKeyhole className="h-3.5 w-3.5" /> Provider checkout required before charging</span>
             </div>
           </section>
