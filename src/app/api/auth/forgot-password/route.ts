@@ -21,18 +21,8 @@ export async function POST(request: NextRequest) {
       select: { id: true, username: true, status: true },
     })
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'No account found with that username' },
-        { status: 404 }
-      )
-    }
-
-    if (user.status === 'archived') {
-      return NextResponse.json(
-        { error: 'This account is archived. Contact your administrator.' },
-        { status: 403 }
-      )
+    if (!user || user.status === 'archived') {
+      return NextResponse.json({ message: 'If an eligible account exists, a password reset request has been submitted.' })
     }
 
     // Check for existing pending request

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateAdmin, forbiddenResponse } from '@/lib/auth'
 import ExcelJS from 'exceljs'
+import { getTenantContext } from '@/lib/tenant'
 
 // GET /api/admin/reports/monthly/export/[id] - Admin export any report as Excel workbook
 export async function GET(
@@ -11,11 +12,13 @@ export async function GET(
   try {
     const payload = await authenticateAdmin(request)
     if (!payload) return forbiddenResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return forbiddenResponse('Active organization membership required')
 
     const { id } = await params
 
-    const report = await db.monthlyReport.findUnique({
-      where: { id },
+    const report = await db.monthlyReport.findFirst({
+      where: { id, user: { organizationId: tenant.organizationId } },
       include: {
         user: {
           select: {
@@ -175,7 +178,7 @@ export async function GET(
       }
     })
 
-    // ═══════���══════════════════════════════════════════════════════
+    // ═══════�����══════════════════════════════════════════════════════
     // SHEET 4: ACHIEVEMENTS
     // ══════════════════════════════════════════════════════════════
     const s4 = wb.addWorksheet('Achievements')

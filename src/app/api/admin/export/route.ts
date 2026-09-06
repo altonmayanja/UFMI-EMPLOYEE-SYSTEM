@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyToken, getTokenFromRequest } from '@/lib/auth'
 import ExcelJS from 'exceljs'
+import { requireOrganizationAdmin } from '@/lib/tenant'
 
 // Helper: authenticate admin
 async function authenticateAdmin(request: NextRequest) {
@@ -16,9 +17,9 @@ async function authenticateAdmin(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const payload = await authenticateAdmin(request)
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    if (!payload) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const { context, response } = await requireOrganizationAdmin(payload)
+    if (!context) return response
 
     const { searchParams } = new URL(request.url)
     const month = searchParams.get('month') // YYYY-MM format
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch all reports for the month with user data
     const reports = await db.dailyReport.findMany({
-      where: { date: { startsWith: month } },
+      where: { date: { startsWith: month }, user: { organizationId: context.organizationId } },
       include: {
         user: {
           select: {

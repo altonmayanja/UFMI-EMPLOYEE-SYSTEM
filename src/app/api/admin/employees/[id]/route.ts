@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyToken, getTokenFromRequest } from '@/lib/auth'
 import { hashPassword } from '@/lib/password'
+import { requireOrganizationAdmin } from '@/lib/tenant'
 
 // Helper: authenticate admin
 async function authenticateAdmin(request: NextRequest) {
@@ -19,16 +20,16 @@ export async function PATCH(
 ) {
   try {
     const payload = await authenticateAdmin(request)
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    if (!payload) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const { context, response } = await requireOrganizationAdmin(payload)
+    if (!context) return response
 
     const { id } = await params
     const body = await request.json()
     const { username, status, position, employeeId, password } = body
 
     const user = await db.user.findUnique({
-      where: { id },
+      where: { id, organizationId: context.organizationId },
       include: { profile: true },
     })
 
@@ -50,7 +51,7 @@ export async function PATCH(
     // Update username
     if (username && typeof username === 'string' && username.trim()) {
       // Check if username is taken by another user
-      const existing = await db.user.findFirst({ where: { username: username.trim(), NOT: { id } } })
+      const existing = await db.user.findFirst({ where: { username: username.trim(), organizationId: context.organizationId, NOT: { id } } })
       if (existing) {
         return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
       }
@@ -81,7 +82,7 @@ export async function PATCH(
     // Update user
     if (Object.keys(updates).length > 0) {
       await db.user.update({
-        where: { id },
+        where: { id, organizationId: context.organizationId },
         data: updates,
       })
     }
@@ -104,7 +105,7 @@ export async function PATCH(
     })
 
     const updatedUser = await db.user.findUnique({
-      where: { id },
+      where: { id, organizationId: context.organizationId },
       include: { profile: true },
     })
 
@@ -122,9 +123,9 @@ export async function DELETE(
 ) {
   try {
     const payload = await authenticateAdmin(request)
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    if (!payload) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const { context, response } = await requireOrganizationAdmin(payload)
+    if (!context) return response
 
     const { id } = await params
 
@@ -140,7 +141,7 @@ export async function DELETE(
       )
     }
 
-    await db.user.delete({ where: { id } })
+    await db.user.delete({ where: { id, organizationId: context.organizationId } })
 
     // Create audit log
     await db.auditLog.create({

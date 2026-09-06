@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyToken, getTokenFromRequest } from '@/lib/auth'
 import { hashPassword } from '@/lib/password'
+import { requireOrganizationAdmin } from '@/lib/tenant'
 
 // Helper: authenticate admin
 async function authenticateAdmin(request: NextRequest) {
@@ -28,15 +29,15 @@ const POSITIONS = [
 export async function GET(request: NextRequest) {
   try {
     const payload = await authenticateAdmin(request)
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    if (!payload) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const { context, response } = await requireOrganizationAdmin(payload)
+    if (!context) return response
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const search = searchParams.get('search')
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { organizationId: context.organizationId }
 
     if (status) {
       where.status = status
@@ -66,9 +67,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const payload = await authenticateAdmin(request)
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    if (!payload) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const { context, response } = await requireOrganizationAdmin(payload)
+    if (!context) return response
 
     const body = await request.json()
     const { username, password, employeeId, position } = body
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
       data: {
         username,
         passwordHash,
+        organizationId: context.organizationId,
         role: 'employee',
         status: 'active',
         profile: {
@@ -122,6 +124,9 @@ export async function POST(request: NextRequest) {
             employeeId,
             position,
           },
+        },
+        memberships: {
+          create: { organizationId: context.organizationId, role: 'member', status: 'active' },
         },
       },
       include: { profile: true },

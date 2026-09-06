@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getTokenFromRequest, verifyToken } from '@/lib/auth'
 import { hashPassword } from '@/lib/password'
+import { requireOrganizationAdmin } from '@/lib/tenant'
 
 // PATCH /api/admin/password-resets/[id] — resolve a reset request (set new password or reject)
 export async function PATCH(
@@ -14,9 +15,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const payload = await verifyToken(token)
-    if (!payload || payload.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    if (!payload || payload.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const { context, response } = await requireOrganizationAdmin(payload)
+    if (!context) return response
 
     const { id } = await params
     const body = await request.json()
@@ -27,8 +28,8 @@ export async function PATCH(
     }
 
     // Find the reset request
-    const resetRequest = await db.passwordResetRequest.findUnique({
-      where: { id },
+    const resetRequest = await db.passwordResetRequest.findFirst({
+      where: { id, user: { organizationId: context.organizationId } },
     })
 
     if (!resetRequest) {
@@ -65,7 +66,7 @@ export async function PATCH(
     // Update the user's password and mark request as resolved
     await db.$transaction([
       db.user.update({
-        where: { id: resetRequest.userId },
+        where: { id: resetRequest.userId, organizationId: context.organizationId },
         data: { passwordHash },
       }),
       db.passwordResetRequest.update({

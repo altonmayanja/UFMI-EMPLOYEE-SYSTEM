@@ -14,20 +14,18 @@ export async function PATCH(
     const { id } = await params
 
     // Ensure the notification belongs to the user or is a broadcast
-    const notification = await db.notification.findUnique({
-      where: { id },
+    const notification = await db.notification.findFirst({
+      where: { id, OR: [{ userId: payload.userId }, { userId: null }] },
     })
 
     if (!notification) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
 
-    if (notification.userId && notification.userId !== payload.userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    if (notification.userId && notification.userId !== payload.userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    await db.notification.update({
-      where: { id },
+    await db.notification.updateMany({
+      where: { id, OR: [{ userId: payload.userId }, { userId: null }] },
       data: { read: true },
     })
 
@@ -49,8 +47,8 @@ export async function DELETE(
 
     const { id } = await params
 
-    const notification = await db.notification.findUnique({
-      where: { id },
+    const notification = await db.notification.findFirst({
+      where: { id, OR: [{ userId: payload.userId }, { userId: null }] },
     })
 
     if (!notification) {
@@ -62,8 +60,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await db.notification.delete({
-      where: { id },
+    await db.notification.deleteMany({
+      where: { id, userId: payload.userId },
     })
 
     return NextResponse.json({ success: true })

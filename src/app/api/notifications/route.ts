@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await authenticateRequest(request)
     if (!payload) return unauthorizedResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return unauthorizedResponse('Active organization membership required')
 
     const body = await request.json()
     const { action } = body
