@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { hashPassword, verifyPassword } from '@/lib/password'
+import { verifyPassword } from '@/lib/password'
 import { signToken } from '@/lib/auth'
 
 // POST /api/auth/login
@@ -12,26 +12,11 @@ export async function POST(request: NextRequest) {
     const organizationInput = typeof body.organization === 'string' ? body.organization.trim() : ''
     const requestedOrganizationId = typeof body.organizationId === 'string' ? body.organizationId : undefined
 
-    if (!username || !password || (!organizationInput && !requestedOrganizationId)) {
+    if (!username || !password) {
       return NextResponse.json(
-        { error: 'Organization, username, and password are required' },
+        { error: 'Username and password are required' },
         { status: 400 }
       )
-    }
-
-    const organization = requestedOrganizationId
-      ? await db.organization.findUnique({ where: { id: requestedOrganizationId } })
-      : await db.organization.findFirst({
-          where: {
-            OR: [
-              { slug: organizationInput.toLowerCase() },
-              { name: { equals: organizationInput, mode: 'insensitive' } },
-            ],
-          },
-        })
-
-    if (!organization || !['active', 'trial', 'grace'].includes(organization.status)) {
-      return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
     }
 
     const user = await db.user.findUnique({
@@ -39,17 +24,37 @@ export async function POST(request: NextRequest) {
       include: { profile: true, memberships: { where: { status: 'active' }, include: { organization: true } } },
     })
 
-    if (!user) {
+    if (!user || user.status !== 'active') {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
-    if (user.status !== 'active') {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    const isPlatformAdmin = user.role === 'super_admin'
+    if (!isPlatformAdmin && !organizationInput && !requestedOrganizationId) {
+      return NextResponse.json({ error: 'Organization, username, and password are required' }, { status: 400 })
     }
 
-    const membership = user.memberships.find((item) => item.organizationId === organization.id)
-    const isLegacyOrganizationUser = organization.organizationType === 'LEGACY' && user.organizationId === organization.id
-    if (!membership && !isLegacyOrganizationUser) {
+    const organization = isPlatformAdmin
+      ? null
+      : requestedOrganizationId
+        ? await db.organization.findUnique({ where: { id: requestedOrganizationId } })
+        : await db.organization.findFirst({
+            where: {
+              OR: [
+                { slug: organizationInput.toLowerCase() },
+                { name: { equals: organizationInput, mode: 'insensitive' } },
+              ],
+            },
+          })
+
+    if (!isPlatformAdmin && (!organization || !['active', 'trial', 'grace'].includes(organization.status))) {
+      return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
+    }
+
+    const membership = organization
+      ? user.memberships.find((item) => item.organizationId === organization.id)
+      : undefined
+    const isLegacyOrganizationUser = Boolean(organization && organization.organizationType === 'LEGACY' && user.organizationId === organization.id)
+    if (!isPlatformAdmin && !membership && !isLegacyOrganizationUser) {
       return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
     }
 
@@ -76,7 +81,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.id,
           action: 'login',
-          details: JSON.stringify({ organizationId: organization.id }),
+          details: JSON.stringify({ organizationId: organization?.id ?? null }),
         },
       })
     } catch (auditError) {
@@ -90,10 +95,10 @@ export async function POST(request: NextRequest) {
         username: user.username,
         role: user.role,
         status: user.status,
-        organizationId: membership?.organizationId ?? organization.id,
+        organizationId: membership?.organizationId ?? organization?.id,
         membershipId: membership?.id,
         organizationRole: membership?.role,
-        organization: { id: organization.id, name: organization.name, slug: organization.slug },
+        organization: organization ? { id: organization.id, name: organization.name, slug: organization.slug } : null,
         profile: user.profile ? {
           employeeId: user.profile.employeeId,
           position: user.profile.position,
