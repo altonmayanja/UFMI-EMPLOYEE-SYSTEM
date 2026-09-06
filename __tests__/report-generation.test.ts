@@ -17,7 +17,9 @@ describe('Statistics Processing', () => {
       { date: '2025-01-09', activityText: 'Performed maintenance on office equipment\nReplaced broken printer parts', createdAt: '2025-01-09T08:30:00Z' },
       { date: '2025-01-10', activityText: 'Conducted research on new software tools', createdAt: '2025-01-10T14:00:00Z' },
     ]
-    return overrides.length > 0 ? overrides : defaults
+    return overrides.length > 0
+      ? overrides.map((override, index) => ({ ...defaults[index % defaults.length], ...override }))
+      : defaults
   }
 
   it('should process monthly activities correctly', () => {
