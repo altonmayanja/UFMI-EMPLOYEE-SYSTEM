@@ -14,10 +14,6 @@ export const metadata: Metadata = {
   description: "Natural Intellects helps organizations capture daily work, understand workforce activity, and manage reporting with confidence.",
   keywords: ["Natural Intellects", "employee reporting", "workforce management", "daily work reports", "team operations"],
   authors: [{ name: "Natural Intellects Ltd" }],
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
-  },
   openGraph: {
     title: "UFMI Portal - Operations Dashboard",
     description: "Uganda Federation of Movie Industry Operations Portal",
