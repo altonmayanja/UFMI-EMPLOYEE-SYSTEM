@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   keywords: ["Natural Intellects", "employee reporting", "workforce management", "daily work reports", "team operations"],
   authors: [{ name: "Natural Intellects Ltd" }],
   openGraph: {
-    title: "UFMI Portal - Operations Dashboard",
-    description: "Uganda Federation of Movie Industry Operations Portal",
+    title: "Natural Intellects | Employee Reporting & Workforce Management",
+    description: "Capture daily work, understand workforce activity, and manage reporting with confidence.",
     type: "website",
   },
 };
