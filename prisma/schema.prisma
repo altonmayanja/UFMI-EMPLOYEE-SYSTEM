@@ -127,8 +127,10 @@ model Organization {
   timezone        String   @default("Africa/Kampala")
   trialStartedAt  DateTime?
   trialEndsAt     DateTime?
+  graceStartedAt  DateTime?
   graceEndsAt     DateTime?
   suspendedAt     DateTime?
+  retentionEndsAt DateTime?
   archivedAt      DateTime?
   deletionScheduledAt DateTime?
   createdAt       DateTime @default(now())
