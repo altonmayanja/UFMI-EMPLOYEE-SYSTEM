@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { unauthorizedResponse, forbiddenResponse, type JWTPayload } from '@/lib/auth'
 import { NextResponse } from 'next/server'
+import { syncOrganizationLifecycle } from '@/lib/lifecycle'
 
 export type TenantContext = JWTPayload & {
   organizationId: string
@@ -19,7 +20,8 @@ export async function getTenantContext(payload: JWTPayload | null): Promise<Tena
     ? user.memberships.find((item) => item.organizationId === payload.organizationId)
     : user.memberships.length === 1 ? user.memberships[0] : undefined
   if (!membership) return null
-  if (!['active', 'trial', 'grace'].includes(membership.organization.status)) return null
+  const organization = await syncOrganizationLifecycle(membership.organizationId)
+  if (!organization || !['active', 'trial', 'grace'].includes(organization.status)) return null
   return { ...payload, organizationId: membership.organizationId, membershipId: membership.id, organizationRole: membership.role }
 }
 

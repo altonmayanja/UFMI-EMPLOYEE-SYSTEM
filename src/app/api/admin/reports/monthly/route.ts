@@ -4,12 +4,15 @@ import { authenticateAdmin, forbiddenResponse } from '@/lib/auth'
 import { generateReport } from '@/lib/report-service'
 import { checkRateLimit, getRateLimitErrorMessage } from '@/lib/rate-limiter'
 import { Prisma } from '@prisma/client'
+import { getTenantContext } from '@/lib/tenant'
 
 // GET /api/admin/reports/monthly - List ALL monthly reports with pagination, sorting, and search
 export async function GET(request: NextRequest) {
   try {
     const payload = await authenticateAdmin(request)
     if (!payload) return forbiddenResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return forbiddenResponse('Active organization membership required')
 
     const { searchParams } = new URL(request.url)
 
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId')
 
     // Build where clause
-    const where: Prisma.MonthlyReportWhereInput = {}
+    const where: Prisma.MonthlyReportWhereInput = { user: { organizationId: tenant.organizationId } }
 
     if (month) where.month = month
     if (userId) where.userId = userId
@@ -109,6 +112,8 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await authenticateAdmin(request)
     if (!payload) return forbiddenResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return forbiddenResponse('Active organization membership required')
 
     const body = await request.json()
     const { month, userId, force } = body
@@ -119,6 +124,8 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
+    const target = await db.user.findFirst({ where: { id: userId, organizationId: tenant.organizationId } })
+    if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
     // Rate limiting (per admin)
     const rateLimit = checkRateLimit(payload.userId, 'admin_generate')

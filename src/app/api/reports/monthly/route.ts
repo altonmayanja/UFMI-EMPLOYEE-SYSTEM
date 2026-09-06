@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth'
+import { getTenantContext } from '@/lib/tenant'
 import { generateReport } from '@/lib/report-service'
 import { checkRateLimit, getRateLimitErrorMessage } from '@/lib/rate-limiter'
 
@@ -9,9 +10,11 @@ export async function GET(request: NextRequest) {
   try {
     const payload = await authenticateRequest(request)
     if (!payload) return unauthorizedResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return unauthorizedResponse('Active organization membership required')
 
     const reports = await db.monthlyReport.findMany({
-      where: { userId: payload.userId },
+      where: { userId: payload.userId, user: { organizationId: tenant.organizationId } },
       orderBy: { month: 'desc' },
     })
 
@@ -42,6 +45,8 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await authenticateRequest(request)
     if (!payload) return unauthorizedResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return unauthorizedResponse('Active organization membership required')
 
     // Rate limiting
     const rateLimit = checkRateLimit(payload.userId, 'employee_generate')

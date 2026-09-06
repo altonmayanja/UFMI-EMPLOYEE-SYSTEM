@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateAdmin, forbiddenResponse } from '@/lib/auth'
+import { getTenantContext } from '@/lib/tenant'
 
 // GET /api/admin/reports/monthly/[id] - Admin gets any monthly report
 export async function GET(
@@ -10,11 +11,13 @@ export async function GET(
   try {
     const payload = await authenticateAdmin(request)
     if (!payload) return forbiddenResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return forbiddenResponse('Active organization membership required')
 
     const { id } = await params
 
-    const report = await db.monthlyReport.findUnique({
-      where: { id },
+    const report = await db.monthlyReport.findFirst({
+      where: { id, user: { organizationId: tenant.organizationId } },
       include: {
         user: {
           select: {
@@ -54,15 +57,17 @@ export async function DELETE(
   try {
     const payload = await authenticateAdmin(request)
     if (!payload) return forbiddenResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return forbiddenResponse('Active organization membership required')
 
     const { id } = await params
 
-    const report = await db.monthlyReport.findUnique({ where: { id } })
+    const report = await db.monthlyReport.findFirst({ where: { id, user: { organizationId: tenant.organizationId } } })
     if (!report) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 })
     }
 
-    await db.monthlyReport.delete({ where: { id } })
+    await db.monthlyReport.deleteMany({ where: { id, user: { organizationId: tenant.organizationId } } })
 
     await db.auditLog.create({
       data: {

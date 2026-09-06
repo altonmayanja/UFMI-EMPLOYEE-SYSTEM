@@ -16,13 +16,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    const context = await getTenantContext(payload)
-    if (!context) {
+    const context = payload.role === 'super_admin' ? null : await getTenantContext(payload)
+    if (!context && payload.role !== 'super_admin') {
       return NextResponse.json({ error: 'Active organization membership required' }, { status: 401 })
     }
 
     const user = await db.user.findUnique({
-      where: { id: context.userId },
+      where: { id: payload.userId },
       include: { profile: true },
     })
 
@@ -35,9 +35,9 @@ export async function GET(request: NextRequest) {
       username: user.username,
       role: user.role,
       status: user.status,
-      organizationId: context.organizationId,
-      membershipId: context.membershipId,
-      organizationRole: context.organizationRole,
+      organizationId: context?.organizationId ?? undefined,
+      membershipId: context?.membershipId ?? undefined,
+      organizationRole: context?.organizationRole ?? undefined,
       createdAt: user.createdAt,
       profile: user.profile ? {
         employeeId: user.profile.employeeId,

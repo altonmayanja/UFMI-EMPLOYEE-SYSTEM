@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest, unauthorizedResponse, forbiddenResponse } from '@/lib/auth'
+import { getTenantContext } from '@/lib/tenant'
 
 // GET /api/reports/monthly/[id] - Get a specific monthly report
 export async function GET(
@@ -10,11 +11,13 @@ export async function GET(
   try {
     const payload = await authenticateRequest(request)
     if (!payload) return unauthorizedResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return unauthorizedResponse('Active organization membership required')
 
     const { id } = await params
 
-    const report = await db.monthlyReport.findUnique({
-      where: { id },
+    const report = await db.monthlyReport.findFirst({
+      where: { id, user: { organizationId: tenant.organizationId } },
     })
 
     if (!report) {

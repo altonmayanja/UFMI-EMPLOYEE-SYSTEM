@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword } from '@/lib/password'
-import { signToken } from '@/lib/auth'
+import { signToken, sessionCookie } from '@/lib/auth'
 
 // POST /api/auth/login
 export async function POST(request: NextRequest) {
@@ -88,8 +88,7 @@ export async function POST(request: NextRequest) {
       console.error('Login audit event failed:', auditError)
     }
 
-    return NextResponse.json({
-      token,
+    const response = NextResponse.json({
       user: {
         id: user.id,
         username: user.username,
@@ -105,6 +104,8 @@ export async function POST(request: NextRequest) {
         } : null,
       },
     })
+    response.cookies.set(sessionCookie(token))
+    return response
   } catch (error) {
     console.error('Login error:', error)
     if (error instanceof Error && error.name === 'PrismaClientInitializationError') {

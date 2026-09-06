@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyToken, getTokenFromRequest } from '@/lib/auth'
+import { getTenantContext } from '@/lib/tenant'
 
 // Helper: authenticate request
 async function authenticateRequest(request: NextRequest) {
@@ -16,9 +17,9 @@ export async function PUT(
 ) {
   try {
     const payload = await authenticateRequest(request)
-    if (!payload) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return NextResponse.json({ error: 'Active organization membership required' }, { status: 403 })
 
     const { id } = await params
     const body = await request.json()
@@ -46,7 +47,7 @@ export async function PUT(
       )
     }
 
-    const report = await db.dailyReport.findUnique({ where: { id } })
+    const report = await db.dailyReport.findFirst({ where: { id, user: { organizationId: tenant.organizationId } } })
 
     if (!report) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 })
@@ -57,8 +58,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const updated = await db.dailyReport.update({
-      where: { id },
+    const updatedCount = await db.dailyReport.updateMany({
+      where: { id, user: { organizationId: tenant.organizationId } },
       data: {
         activityText: activityText.trim(),
         location: location?.trim() || null,
@@ -67,7 +68,8 @@ export async function PUT(
         comments: comments?.trim() || null,
       },
     })
-
+    if (!updatedCount.count) return NextResponse.json({ error: 'Report not found' }, { status: 404 })
+    const updated = await db.dailyReport.findFirst({ where: { id, user: { organizationId: tenant.organizationId } } })
     return NextResponse.json(updated)
   } catch (error) {
     console.error('Update report error:', error)
@@ -82,12 +84,12 @@ export async function DELETE(
 ) {
   try {
     const payload = await authenticateRequest(request)
-    if (!payload) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return NextResponse.json({ error: 'Active organization membership required' }, { status: 403 })
 
     const { id } = await params
-    const report = await db.dailyReport.findUnique({ where: { id } })
+    const report = await db.dailyReport.findFirst({ where: { id, user: { organizationId: tenant.organizationId } } })
 
     if (!report) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 })
@@ -97,7 +99,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await db.dailyReport.delete({ where: { id } })
+    const deleted = await db.dailyReport.deleteMany({ where: { id, user: { organizationId: tenant.organizationId } } })
+    if (!deleted.count) return NextResponse.json({ error: 'Report not found' }, { status: 404 })
 
     return NextResponse.json({ message: 'Report deleted' })
   } catch (error) {

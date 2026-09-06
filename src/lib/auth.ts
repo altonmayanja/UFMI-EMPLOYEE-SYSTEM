@@ -42,12 +42,24 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
   }
 }
 
+export const SESSION_COOKIE = 'ni_session'
+
 export function getTokenFromRequest(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization')
-  if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.substring(7)
+  if (authHeader?.startsWith('Bearer ')) return authHeader.substring(7)
+  return request.cookies.get(SESSION_COOKIE)?.value ?? null
+}
+
+export function sessionCookie(token: string) {
+  return {
+    name: SESSION_COOKIE,
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
   }
-  return null
 }
 
 /**

@@ -20,8 +20,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = window.localStorage.getItem('ufmi_token')
-    fetch('/api/billing', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    fetch('/api/billing', { credentials: 'include' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Unable to load billing details')
         return response.json() as Promise<BillingData>
@@ -32,11 +31,11 @@ export default function BillingPage() {
   }, [])
 
   async function requestCheckout() {
-    const token = window.localStorage.getItem('ufmi_token')
     if (!data?.subscription) return
     const response = await fetch('/api/billing', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ planKey: data.subscription.plan.key }),
     })
     const result = await response.json()

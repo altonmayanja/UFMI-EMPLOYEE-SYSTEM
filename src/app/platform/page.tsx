@@ -13,8 +13,7 @@ export default function PlatformPage() {
 
   async function load() {
     setLoading(true)
-    const token = typeof window !== 'undefined' ? window.localStorage.getItem('auth_token') : null
-    const response = await fetch('/api/platform/overview', { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+    const response = await fetch('/api/platform/overview', { credentials: 'include' })
     if (!response.ok) { setError(response.status === 403 ? 'This area is restricted to Natural Intellects platform administrators.' : 'Sign in with a platform administrator account to continue.'); setLoading(false); return }
     setData(await response.json()); setError(''); setLoading(false)
   }
