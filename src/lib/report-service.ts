@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { DEFAULT_CATEGORIES, processMonthlyActivities, generateMonthlyReport, type MonthlyReportOutput } from '@/lib/report-engine'
 
 export interface GenerateReportParams {
+  organizationId: string
   userId: string
   month: string
   force?: boolean
@@ -39,7 +40,7 @@ export interface GenerateReportResult {
  * - If report exists and force=false: throws error with report ID
  */
 export async function generateReport(params: GenerateReportParams): Promise<GenerateReportResult> {
-  const { userId, month, force = false, generatedBy = 'self' } = params
+  const { organizationId, userId, month, force = false, generatedBy = 'self' } = params
 
   // Validate month format
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
@@ -48,7 +49,7 @@ export async function generateReport(params: GenerateReportParams): Promise<Gene
 
   // Check if report already exists
   const existing = await db.monthlyReport.findUnique({
-    where: { userId_month: { userId, month } },
+    where: { userId_month: { userId, month }, user: { organizationId } },
   })
 
   if (existing && !force) {
@@ -59,7 +60,7 @@ export async function generateReport(params: GenerateReportParams): Promise<Gene
 
   // Get user info
   const user = await db.user.findUnique({
-    where: { id: userId },
+    where: { id: userId, organizationId },
     include: { profile: true },
   })
 
@@ -69,7 +70,7 @@ export async function generateReport(params: GenerateReportParams): Promise<Gene
 
   // Get all daily reports for the month
   const dailyReports = await db.dailyReport.findMany({
-    where: { userId, date: { startsWith: month } },
+    where: { userId, date: { startsWith: month }, user: { organizationId } },
     orderBy: { date: 'asc' },
   })
 
@@ -173,6 +174,7 @@ export async function generateReport(params: GenerateReportParams): Promise<Gene
  * Returns results for each employee (success or error).
  */
 export async function generateBulkReports(params: {
+  organizationId: string
   month: string
   userIds: string[]
   generatedBy: string
@@ -183,11 +185,12 @@ export async function generateBulkReports(params: {
     try {
       // Get user for result
       const user = await db.user.findUnique({
-        where: { id: userId },
+        where: { id: userId, organizationId: params.organizationId },
         select: { username: true },
       })
 
       const result = await generateReport({
+        organizationId: params.organizationId,
         userId,
         month: params.month,
         force: true,
@@ -202,7 +205,7 @@ export async function generateBulkReports(params: {
       })
     } catch (error) {
       const user = await db.user.findUnique({
-        where: { id: userId },
+        where: { id: userId, organizationId: params.organizationId },
         select: { username: true },
       })
       results.push({

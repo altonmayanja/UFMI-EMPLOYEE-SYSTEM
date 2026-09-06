@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const result = await generateReport({
+        organizationId: tenant.organizationId,
         userId,
         month,
         generatedBy: payload.userId,

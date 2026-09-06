@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { unauthorizedResponse, forbiddenResponse, type JWTPayload } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 import { syncOrganizationLifecycle } from '@/lib/lifecycle'
+import { canAccessLifecycleState, canAccessOrganizationAdmin, selectTenantMembership } from '@/lib/authorization'
 
 export type TenantContext = JWTPayload & {
   organizationId: string
@@ -16,12 +17,10 @@ export async function getTenantContext(payload: JWTPayload | null): Promise<Tena
   })
   if (!user || user.status !== 'active') return null
   if (user.role === 'super_admin') return null
-  const membership = payload.organizationId
-    ? user.memberships.find((item) => item.organizationId === payload.organizationId)
-    : user.memberships.length === 1 ? user.memberships[0] : undefined
+  const membership = selectTenantMembership(user.memberships, payload.organizationId)
   if (!membership) return null
   const organization = await syncOrganizationLifecycle(membership.organizationId)
-  if (!organization || !['active', 'trial', 'grace'].includes(organization.status)) return null
+  if (!organization || !canAccessLifecycleState(organization.status)) return null
   return { ...payload, organizationId: membership.organizationId, membershipId: membership.id, organizationRole: membership.role }
 }
 
@@ -34,7 +33,7 @@ export async function requireTenant(payload: JWTPayload | null) {
 export async function requireOrganizationAdmin(payload: JWTPayload | null) {
   const result = await requireTenant(payload)
   if (!result.context) return result
-  if (!['owner', 'admin'].includes(result.context.organizationRole) && result.context.role !== 'admin') {
+  if (!canAccessOrganizationAdmin(result.context.role, result.context.organizationRole)) {
     return { context: null, response: forbiddenResponse('Organization administrator access required') }
   }
   return result

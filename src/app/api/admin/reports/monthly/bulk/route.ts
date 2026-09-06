@@ -4,12 +4,15 @@ import { authenticateAdmin, forbiddenResponse } from '@/lib/auth'
 import { generateBulkReports } from '@/lib/report-service'
 import { checkRateLimit, getRateLimitErrorMessage } from '@/lib/rate-limiter'
 import { Prisma } from '@prisma/client'
+import { getTenantContext } from '@/lib/tenant'
 
 // POST /api/admin/reports/monthly/bulk - Bulk generate monthly reports
 export async function POST(request: NextRequest) {
   try {
     const payload = await authenticateAdmin(request)
     if (!payload) return forbiddenResponse()
+    const tenant = await getTenantContext(payload)
+    if (!tenant) return forbiddenResponse('Active organization membership required')
 
     const body = await request.json()
     const { month, employeeStatus, onlyMissing } = body
@@ -29,6 +32,7 @@ export async function POST(request: NextRequest) {
 
     // Build employee filter
     const where: Prisma.UserWhereInput = {
+      organizationId: tenant.organizationId,
       role: 'employee',
     }
 
@@ -73,6 +77,7 @@ export async function POST(request: NextRequest) {
     const userIds = employees.map((e) => e.id)
 
     const results = await generateBulkReports({
+      organizationId: tenant.organizationId,
       month,
       userIds,
       generatedBy: payload.userId,
