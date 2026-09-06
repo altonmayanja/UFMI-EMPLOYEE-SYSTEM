@@ -5,6 +5,8 @@ import { ArrowLeft, CreditCard, LockKeyhole, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
 type BillingData = {
+  organization: { status: string; trialEndsAt: string | null; graceEndsAt: string | null } | null
+  usage: { employeeCount: number; employeeLimit: number | null; canAddEmployee: boolean }
   subscription: {
     status: string
     provider: string | null
@@ -83,6 +85,18 @@ export default function BillingPage() {
             </div>
           </section>
         ) : <p className="rounded-xl border border-white/10 p-6 text-white/60">No subscription is attached to this organization yet.</p>}
+        {data && <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Lifecycle</p>
+            <p className="mt-3 text-xl font-semibold capitalize">{data.organization?.status ?? 'unknown'}</p>
+            <p className="mt-2 text-sm leading-6 text-white/55">{data.organization?.status === 'trial' ? `Trial ends ${data.organization.trialEndsAt ? new Date(data.organization.trialEndsAt).toLocaleDateString() : 'soon'}.` : data.organization?.status === 'grace' ? 'Grace access is active. Update your plan to avoid suspension.' : 'Your organization access is governed by its current subscription.'}</p>
+          </section>
+          <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Capacity</p>
+            <p className="mt-3 text-xl font-semibold">{data.usage.employeeCount} / {data.usage.employeeLimit ?? '∞'} employees</p>
+            <p className="mt-2 text-sm leading-6 text-white/55">{data.usage.canAddEmployee ? 'You can add employees within your current plan.' : 'Your employee capacity is full. Upgrade to add more.'}</p>
+          </section>
+        </div>}
         {message && <p role="status" className="mt-5 rounded-lg border border-[#ed1c24]/30 bg-[#ed1c24]/10 p-4 text-sm text-white/80">{message}</p>}
       </div>
     </main>
